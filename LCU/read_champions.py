@@ -1,92 +1,53 @@
-#   read_champions.py
-#   This is how we grab live champions being picked
-#   We need to access the League Client Update API:
-#   In it we need to grab the port and password
-import os
+# read_champions.py
+# Get the most recent patch and the champions associated with it
+
 import requests
-import urllib3
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+def get_latest_patch():
+    url = "https://ddragon.leagueoflegends.com/api/versions.json"
+    response = requests.get(url)
+    if response.status_code == 200:
+        version = response.json()
+        return version[0]
 
-# Gets the port and password for the lcu
-def get_lcu_credentials(install_path):
-    # Read the lockfile to get the dynamic port and password
-    lockfile_path = os.path.join(install_path, 'lockfile')
+def build_champion_dic(version):
+    url = f"https://ddragon.leagueoflegends.com/cdn/{version}/data/en_US/champion.json"
+    response = requests.get(url)
 
-    if not os.path.exists(lockfile_path):
-        print("League Client is not running or the path is not correct.")
-        return None, None
+    if response.status_code != 200:
+        print("Failed to get the data set")
+        return {}
 
-    with open(lockfile_path, 'r') as f:
-        # Lockfile format: LeagueClient:PID:PORT:PASSWORD:PROTOCOL
-        content = f.read()
-        parts = content.split(':')
-        port = parts[2]
-        password = parts[3]
-        return port, password 
-
-# Get the data within the session
-def get_champ_select_session(port, password):
-    # Fetches the current champion select from the LCU
-    url = f"https://127.0.0.1:{port}/lol-champ-select/v1/session"
-
-    try:
-        # LCU API use basic auth with the username 'riot'
-        response = requests.get(
-            url,
-            auth=('riot', password),
-            verify=False
-        )
-
-        if response.status_code == 200:
-            return response.json()
-        elif response.status_code == 404:
-            print("Not in champ select")
-            return None
-        else:
-            print(f"Error: Received status code {response.status_code}")
-            return None
-    except requests.exceptions.RequestException as e:
-        print(f"Failed to connect to LCU: {e}")
-        return None
-
-# Grab the draft state
-def extract_draft_state(session_data):
-    draft_state = {
-        "allies": [],
-        "enemies": []
-    }
-
-    # Get our team
-    for player in session_data.get('myTeam', []):
-        champ_id = player.get('championId', 0)
-        if champ_id != 0:
-            draft_state["allies"].append(champ_id)
+    champ_data = response.json().get('data', {})
+    id_to_name = {}
     
-    # Get enemy team            
-    for player in session_data.get('theirTeam', []):
-        champ_id = player.get('championId', 0)
-        if champ_id != 0:
-            draft_state["enemies"].append(champ_id)
-    
-    return draft_state
+    for internal_name, details in champ_data.items():
+        num_id = int(details['key'])
+        champ_name = details['name']
+
+        id_to_name[num_id] = champ_name
+
+    return id_to_name
+
+def get_champion_mapping():
+    patch = get_latest_patch()
+    if not patch:
+        print("Error getting the patch")
+        return {}
+    return build_champion_dic(patch)
 
 if __name__ == "__main__":
-    LEAGUE_INSTALL_PATH = "C:\Riot Games\League of Legends"
+    print("Fetching the latest Riot patch version...")
+    latest_patch = get_latest_patch()
 
-    print("Fetching LCU credentials...")
-    port, password = get_lcu_credentials(LEAGUE_INSTALL_PATH)
+    if latest_patch:
+        print(f"Latest Patch is {latest_patch}")
+        print("Downloading champion data")
 
-    if port and password:
-        print(f"Connected! Port: {port} | Password: {password}")
-        print("Fetching Champion Select data...\n")
+        champ_dict = build_champion_dic(latest_patch)
+        print(f"Successfully loaded {len(champ_dict)} into memory")
 
-        session_data = get_champ_select_session(port, password)
-        current_draft = extract_draft_state(session_data)
-
-        if session_data:
-            print(f"Session Keys available: {list(session_data.keys())}")
-            print(f"Your team's picks: {current_draft['allies']}")
-            print(f"Enemy team's picks: {current_draft['enemies']}")
-
-
+        test_ids = [103, 64, 266, 0, 13]
+        for champ_id in test_ids:
+            name = champ_dict.get(champ_id, "DNE")
+            print(f"ID {champ_id} -> {name}")
