@@ -78,21 +78,24 @@ def process_match_data(match_data):
     # Get winners and losers
     winners = [p['championId'] for p in participants if p['win']]
     losers = [p['championId'] for p in participants if not p['win']]
+    # Grabs their rank
+    raw_tier = participants[0].get('tier', 'UNKNOWN')
+    tier = raw_tier.upper() if raw_tier else "UNKNOWN"
     print(f"    -> Updating Synergy for {len(winners)} winners and {len(losers)} losers...")
 
     # Processing the synnergies
-    update_synergy_batch(winners, did_win = True)     # Group winners together
-    update_synergy_batch(winners, did_win = False)     # Group losers together
+    update_synergy_batch(winners, True, tier)     # Group winners together
+    update_synergy_batch(winners, False, tier)     # Group losers together
 
     # Process the counters
     # Tracking if Champ A (Winner) beat champ B (Loser)
     print(f"    -> Updating Counters")
-    update_counter_batch(winners, losers)
+    update_counter_batch(winners, losers, tier)
 
     # game_mode = match_data.get('info', {}).get('gameMode', 'UNKNOWN')
     # print(f"    -> Successfully parsed a {game_mode} match.")
 
-def update_synergy_batch(champ_ids, did_win):
+def update_synergy_batch(champ_ids, did_win, tier):
     """
     Calculates every duo combination on a team and updates the synergy_stats table.
     """
@@ -108,10 +111,11 @@ def update_synergy_batch(champ_ids, did_win):
         supabase.rpc("increment_synergy", {
             "ca_id": champ_a,
             "cb_id": champ_b,
-            "w_inc": win_value
+            "w_inc": win_value,
+            "t": tier
         }).execute()
 
-def update_counter_batch(winners, losers):
+def update_counter_batch(winners, losers, tier):
     """
     Calculates head-to-head matchups (each winner beat each loser) 
     and updates the counters table.
@@ -121,8 +125,9 @@ def update_counter_batch(winners, losers):
     for winner_id, loser_id in matchups:
         try:
             supabase.rpc("increment_counter", {
-                "w_id": winner_id,
-                "l_id": loser_id
+                "w_id": winner_id, 
+                "l_id": loser_id, 
+                "t": tier
             }).execute()
         except Exception as e:
             print(f"Failed to update_counter_batch for winner:{winner_id} vs loser:{loser_id}: {e}")
@@ -141,6 +146,9 @@ if __name__ == "__main__":
             continue
     
         for match in matches:
+            # Dynamic to maximize
+            start_time = time.time()
+
             match_id = match["match_id"]
             print(f"Fetching match: {match_id}")
 
@@ -155,5 +163,7 @@ if __name__ == "__main__":
                 # If Riot 404s, it's a dead ID. Mark it DONE so we don't get stuck.
                 mark_match_done(match_id)
 
+            elapsed = time.time() - start_time
+            wait_time = max(0, 1.26 - elapsed)
 
-            time.sleep(2)
+            time.sleep(wait_time)
