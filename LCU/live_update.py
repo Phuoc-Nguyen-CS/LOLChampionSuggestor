@@ -1,7 +1,5 @@
 #   live_update.py
-#   This is how we grab live champions being picked
-#   We need to access the League Client Update API:
-#   In it we need to grab the port and password
+#   This module monitors the local League of Legends client for live draft updates.
 import os
 import time
 import requests
@@ -12,7 +10,10 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Gets the port and password for the lcu
 def get_lcu_credentials(install_path):
-    # Read the lockfile to get the dynamic port and password
+    """
+    Locates and reads the League 'lockfile' to extract the 
+    dynamic port and password required to talk to the local API.
+    """
     lockfile_path = os.path.join(install_path, 'lockfile')
 
     if not os.path.exists(lockfile_path):
@@ -29,7 +30,9 @@ def get_lcu_credentials(install_path):
 
 # Get the data within the session
 def get_champ_select_session(port, password):
-    # Fetches the current champion select from the LCU
+    """
+    Requests the current champion select state from the local LCU server.
+    """
     url = f"https://127.0.0.1:{port}/lol-champ-select/v1/session"
 
     try:
@@ -54,6 +57,9 @@ def get_champ_select_session(port, password):
 
 # Grab the draft state
 def extract_draft_state(session_data, champ_mapping):
+    """
+    Parses raw LCU JSON into a human-readable format of allied and enemy champion names.
+    """
     draft_state = {"allies": [], "enemies": []}
 
     for player in session_data.get('myTeam', []):
@@ -71,6 +77,7 @@ def extract_draft_state(session_data, champ_mapping):
     return draft_state
 
 if __name__ == "__main__":
+    # Installation path for Windows. May change depending on where you put your folder
     LEAGUE_INSTALL_PATH = "C:\Riot Games\League of Legends"
 
     # Load the data

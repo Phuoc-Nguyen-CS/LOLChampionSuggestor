@@ -9,6 +9,7 @@ import requests
 from dotenv import load_dotenv
 from supabase import create_client, Client
 import time 
+import itertools
 
 
 # Grab the environment variables
@@ -21,7 +22,10 @@ RIOT_API_KEY = os.environ.get("RIOT_API_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def claim_pending_matches(limit = 5):
-    # Grabs matches from the queue
+    """
+    Calls the Supabase RPC 'claim_matches' to safely grab PENDING matches 
+    from the queue and mark them as PROCESSING.
+    """
     try:
         # Custom SQL function from earlier
         response = supabase.rpc("claim_matches", {"claim_limit" : limit}).execute()
@@ -31,7 +35,9 @@ def claim_pending_matches(limit = 5):
         return []
     
 def get_matches_from_riot(match_id):
-    # Use the match id to grab the match details
+    """
+    Fetches raw match JSON data from Riot Games Match-V5 API.
+    """
     region = "americas"
     url = f"https://{region}.api.riotgames.com/lol/match/v5/matches/{match_id}"
     headers = {"X-Riot-Token": RIOT_API_KEY}
@@ -49,14 +55,79 @@ def get_matches_from_riot(match_id):
     return None
 
 def mark_match_done(match_data):
+    """
+    Updates the match status to DONE so it is removed from the active queue.
+    """
     supabase.table("match_queue").update({"status": "DONE"}).eq("match_id", match_id).execute()
 
 def process_match_data(match_data):
-    # Grab who won and who lost
+    """
+    The core logic: Extracts champions, determines winners/losers, 
+    and triggers the database updates for synergies and counters.
+    """
+    info = match_data.get('info', {})
 
-    game_mode = match_data.get('info', {}).get('gameMode', 'UNKNOWN')
-    print(f"    -> Successfully parsed a {game_mode} match.")
+    # Only grab SR games
+    if info.get('gameMode') != "CLASSIC":
+        return
+    
+    participants = info.get('participants', [])
+    if len(participants) != 10: # Edge case for in case its a customs
+        return
+    
+    # Get winners and losers
+    winners = [p['championId'] for p in participants if p['win']]
+    losers = [p['championId'] for p in participants if not p['win']]
+    print(f"    -> Updating Synergy for {len(winners)} winners and {len(losers)} losers...")
 
+    # Processing the synnergies
+    update_synergy_batch(winners, did_win = True)     # Group winners together
+    update_synergy_batch(winners, did_win = False)     # Group losers together
+
+    # Process the counters
+    # Tracking if Champ A (Winner) beat champ B (Loser)
+    print(f"    -> Updating Counters")
+    update_counter_batch(winners, losers)
+
+    # game_mode = match_data.get('info', {}).get('gameMode', 'UNKNOWN')
+    # print(f"    -> Successfully parsed a {game_mode} match.")
+
+def update_synergy_batch(champ_ids, did_win):
+    """
+    Calculates every duo combination on a team and updates the synergy_stats table.
+    """
+
+    # This prevents duplicates rows in the DB
+    # e.g. (1, 53) and (53, 1) will appear as (1, 53) in the DB
+    pairs = list(itertools.combinations(sorted(champ_ids), 2))
+
+    win_value = 1 if did_win else 0
+
+    for champ_a, champ_b in pairs:
+        # Call SQL function in Supabase
+        supabase.rpc("increment_synergy", {
+            "ca_id": champ_a,
+            "cb_id": champ_b,
+            "w_inc": win_value
+        }).execute()
+
+def update_counter_batch(winners, losers):
+    """
+    Calculates head-to-head matchups (each winner beat each loser) 
+    and updates the counters table.
+    """
+    matchups = list(itertools.product(winners, losers))
+
+    for winner_id, loser_id in matchups:
+        try:
+            supabase.rpc("increment_counter", {
+                "w_id": winner_id,
+                "l_id": loser_id
+            }).execute()
+        except Exception as e:
+            print(f"Failed to update_counter_batch for winner:{winner_id} vs loser:{loser_id}: {e}")
+
+        
 if __name__ == "__main__":
     print("Worker node starting")
 

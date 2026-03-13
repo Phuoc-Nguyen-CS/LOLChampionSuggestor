@@ -22,7 +22,9 @@ MATCH_TYPE = "RANKED_SOLO_5x5"
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def get_challenger_players():
-    # Fetches top players from challenger league
+    """
+    Fetches the top 50 players from the Challenger league for the target region.
+    """
     url = f"https://{REGION_PLATFORM}.api.riotgames.com/lol/league/v4/challengerleagues/by-queue/{MATCH_TYPE}"
     params = {"api_key": RIOT_API_KEY}
     response = requests.get(url, params=params)
@@ -30,6 +32,20 @@ def get_challenger_players():
     if response.status_code == 200:
         return response.json().get('entries', [])[:50]
     print(f"Error fetching Challenger list: {response.status_code}")
+    return []
+
+def get_recent_matches(puuid, count=10):
+    """
+    Retrieves the last X match IDs for a specific player PUUID.
+    Filters specifically for Ranked Solo/Duo games (Queue 420).
+    """
+    url = f"https://{REGION_ROUTE}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids"
+    # Filter for Ranked Solo/Duo (Queue 420)
+    params = {"api_key": RIOT_API_KEY, "queue": 420, "start": 0, "count": count}
+    response = requests.get(url, params=params)
+    
+    if response.status_code == 200:
+        return response.json()
     return []
 
 def get_puuid_from_summoner_id(summoner_id):
@@ -41,19 +57,11 @@ def get_puuid_from_summoner_id(summoner_id):
         return response.json().get('puuid')
     return None
 
-def get_recent_matches(puuid, count=10):
-    # Gets the last X match IDs for a specific player
-    url = f"https://{REGION_ROUTE}.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids"
-    # Filter for Ranked Solo/Duo (Queue 420)
-    params = {"api_key": RIOT_API_KEY, "queue": 420, "start": 0, "count": count}
-    response = requests.get(url, params=params)
-    
-    if response.status_code == 200:
-        return response.json()
-    return []
-
 def seed_match_queue(match_ids):
-    #  Inserts Match IDs into Supabase. Duplicates are ignored by the DB.
+    """
+    Uploads Match IDs to the Supabase match_queue table.
+    Uses 'upsert' to ensure we don't create duplicate entries for the same match.
+    """
     data = [{"match_id": m_id, "status": "PENDING"} for m_id in match_ids]
     
     try:
