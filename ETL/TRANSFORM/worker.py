@@ -44,56 +44,128 @@ def get_matches_from_riot(match_id):
 
     response = requests.get(url, headers=headers)
 
-    if response.status_code == 200:  # Successful extraction   
+    if response.status_code == 200:   
         return response.json()
-    elif response.status_code == 429: # We hit the max rate
+    elif response.status_code == 429:
         print("Exceeded rate limit by RIOT API")
         time.sleep(20)
+        # Raise an error instead of returning None so we don't mark it DONE
+        raise Exception("RATE_LIMIT") 
+    elif response.status_code == 404:
+        print(f"Match {match_id} not found (404).")
+        return None
     else:
-        print(f"Failed to fetch {match_id}: Status{response.status_code}")
+        print(f"Failed to fetch {match_id}: Status {response.status_code}")
+        raise Exception("API_ERROR")
 
-    return None
-
-def mark_match_done(match_data):
+def mark_match_done(match_id):
     """
     Updates the match status to DONE so it is removed from the active queue.
     """
-    supabase.table("match_queue").update({"status": "DONE"}).eq("match_id", match_id).execute()
+    try:
+        supabase.table("match_queue").update({"status": "DONE"}).eq("match_id", match_id).execute()
+    except Exception as e:
+        print(f"Failed to mark match {match_id} as DONE: {e}")
 
 def process_match_data(match_data):
-    """
-    The core logic: Extracts champions, determines winners/losers, 
-    and triggers the database updates for synergies and counters.
-    """
     info = match_data.get('info', {})
-
-    # Only grab SR games
-    if info.get('gameMode') != "CLASSIC":
-        return
+    if info.get('gameMode') != "CLASSIC": return
     
     participants = info.get('participants', [])
-    if len(participants) != 10: # Edge case for in case its a customs
-        return
+    if len(participants) != 10: return 
     
-    # Get winners and losers
-    winners = [p['championId'] for p in participants if p['win']]
-    losers = [p['championId'] for p in participants if not p['win']]
-    # Grabs their rank
     raw_tier = participants[0].get('tier', 'UNKNOWN')
     tier = raw_tier.upper() if raw_tier else "UNKNOWN"
-    print(f"    -> Updating Synergy for {len(winners)} winners and {len(losers)} losers...")
+    
+    # Contextual Bucketing
+    duration = info.get('gameDuration', 0)
+    dur_bucket = "EARLY_0_25" if duration < 1500 else ("MID_25_35" if duration < 2100 else "LATE_35_PLUS")
 
-    # Processing the synnergies
-    update_synergy_batch(winners, True, tier)     # Group winners together
-    update_synergy_batch(winners, False, tier)     # Group losers together
+    winners = []
+    losers = []
+    lanes = {} 
 
-    # Process the counters
-    # Tracking if Champ A (Winner) beat champ B (Loser)
-    print(f"    -> Updating Counters")
-    update_counter_batch(winners, losers, tier)
+    for p in participants:
+        pos = p.get('teamPosition')
+        if not pos or pos == "": continue
+        if pos not in lanes: lanes[pos] = {}
+        
+        cid = p['championId']
+        chals = p.get('challenges', {})
+        
+        if p['win']:
+            winners.append(cid)
+        else:
+            losers.append(cid)
 
-    # game_mode = match_data.get('info', {}).get('gameMode', 'UNKNOWN')
-    # print(f"    -> Successfully parsed a {game_mode} match.")
+        # --- ROLE-SPECIFIC SCORING ---
+        micro_score = 0
+        macro_score = 0
+        
+        if pos == "UTILITY": # SUPPORT
+            # Micro: Quest speed + Laning vision
+            if chals.get('fasterSupportQuestCompletion', 0): micro_score += 2
+            if chals.get('visionScoreAdvantageLaneOpponent', 0): micro_score += 1
+            # Macro: Kill Participation + Total Wards
+            macro_score = (chals.get('killParticipation', 0) * 100) + p.get('immobilizeAndKillWithAlly', 0)
+
+        elif pos == "JUNGLE":
+            # Micro: Gank success + Invading (Enemy Jungle CS)
+            micro_score = chals.get('takedownsBefore15', 0) 
+            micro_score += (chals.get('totalEnemyJungleMinionsKilled', 0) // 10) # 1pt per 10 invades
+            # Macro: Objectives (Dragons/Heralds/Barons)
+            macro_score = (chals.get('teamBaronTakedowns', 0) * 500) + p.get('damageDealtToObjectives', 0)
+
+        elif pos == "MIDDLE":
+            # Micro: Early Lead + Solo Kills
+            if chals.get('laningPhaseGoldExpAdvantage', 0): micro_score += 2
+            micro_score += chals.get('soloKills', 0)
+            # Macro: Roaming (Kill participation outside lane)
+            macro_score = (chals.get('takedownsBefore15', 0) * 500) + p.get('damageDealtToObjectives', 0)
+
+        else: # TOP / BOTTOM
+            # Micro: Early Lead
+            if chals.get('laningPhaseGoldExpAdvantage', 0): micro_score += 2
+            if chals.get('maxCsAdvantageOnLaneOpponent', 0) > 15: micro_score += 1
+            micro_score += chals.get('turretPlatesTaken', 0)
+            micro_score += chals.get('soloKills', 0)
+            # --- MACRO (The Map Pressure) ---
+            if pos == "TOP":
+                # Top Macro = Structure Pressure + Contribution
+                # Using building damage to identify split-push and pressure. If you're able to apply pressure you're contributing
+                macro_score = p.get('damageDealtToBuildings', 0) + (p.get('totalDamageDealtToChampions', 0) * 0.1)
+            
+            else: # BOTTOM (ADC)
+                # ADC Macro = Reliable Teamfight Output
+                # We weight champion damage much higher for ADCs as their 'Map Role'
+                macro_score = p.get('totalDamageDealtToChampions', 0) + p.get('damageDealtToObjectives', 0)
+
+        player_data = {"id": cid, "micro": micro_score, "macro": macro_score}
+        
+        if p['win']: lanes[pos]['winner'] = player_data
+        else: lanes[pos]['loser'] = player_data
+
+    # --- THE COMPARISON ENGINE ---
+    for pos, data in lanes.items():
+        if 'winner' in data and 'loser' in data:
+            w, l = data['winner'], data['loser']
+            c_a_id, c_b_id = (w['id'], l['id']) if w['id'] < l['id'] else (l['id'], w['id'])
+            
+            a_is_winner = (c_a_id == w['id'])
+            a_data, b_data = (w, l) if a_is_winner else (l, w)
+            
+            # Win game but Win Lane ?
+            a_won_game = a_is_winner
+            a_won_micro = a_data['micro'] > b_data['micro']
+            a_won_macro = a_data['macro'] > b_data['macro']
+
+            supabase.rpc("update_matchup_holistic", {
+                "c_a": c_a_id, "c_b": c_b_id, "pos": pos, "t": tier, "dur": dur_bucket,
+                "a_won_game": a_won_game, "a_won_micro": a_won_micro, "a_won_macro": a_won_macro
+            }).execute()
+
+    update_synergy_batch(winners, True, tier)
+    update_synergy_batch(losers, False, tier)
 
 def update_synergy_batch(champ_ids, did_win, tier):
     """
@@ -104,66 +176,56 @@ def update_synergy_batch(champ_ids, did_win, tier):
     # e.g. (1, 53) and (53, 1) will appear as (1, 53) in the DB
     pairs = list(itertools.combinations(sorted(champ_ids), 2))
 
-    win_value = 1 if did_win else 0
-
-    for champ_a, champ_b in pairs:
-        # Call SQL function in Supabase
-        supabase.rpc("increment_synergy", {
-            "ca_id": champ_a,
-            "cb_id": champ_b,
-            "w_inc": win_value,
-            "t": tier
+    for c_a, c_b in pairs:
+        supabase.rpc("update_synergy", {
+            "c_a": c_a, "c_b": c_b, "t": tier, "is_win": did_win
         }).execute()
 
-def update_counter_batch(winners, losers, tier):
-    """
-    Calculates head-to-head matchups (each winner beat each loser) 
-    and updates the counters table.
-    """
-    matchups = list(itertools.product(winners, losers))
+# DEPRECATED: Replaced by the update match up logic
+# def update_counter_batch(winners, losers, tier):
+#     """
+#     Calculates head-to-head matchups (each winner beat each loser) 
+#     and updates the counters table.
+#     """
+#     matchups = list(itertools.product(winners, losers))
 
-    for winner_id, loser_id in matchups:
-        try:
-            supabase.rpc("increment_counter", {
-                "w_id": winner_id, 
-                "l_id": loser_id, 
-                "t": tier
-            }).execute()
-        except Exception as e:
-            print(f"Failed to update_counter_batch for winner:{winner_id} vs loser:{loser_id}: {e}")
+#     for winner_id, loser_id in matchups:
+#         try:
+#             supabase.rpc("increment_counter", {
+#                 "w_id": winner_id, 
+#                 "l_id": loser_id, 
+#                 "t": tier
+#             }).execute()
+#         except Exception as e:
+#             print(f"Failed to update_counter_batch for winner:{winner_id} vs loser:{loser_id}: {e}")
 
         
 if __name__ == "__main__":
-    print("Worker node starting")
-
+    print("Worker node starting...")
     while True:
-        print("Looking for work")
-        matches = claim_pending_matches(limit = 5)
-
+        print("Working")
+        matches = claim_pending_matches(limit=5)
         if not matches:
-            print("Queue is empty, trying in 30 seconds")
+            print("Queue empty, waiting...")
             time.sleep(30)
             continue
-    
+            
         for match in matches:
-            # Dynamic to maximize
             start_time = time.time()
+            m_id = match["match_id"]
+            
+            try:
+                data = get_matches_from_riot(m_id)
+                if data:
+                    process_match_data(data)
+                
+                # If we get here without an exception, it's safe to mark DONE
+                mark_match_done(m_id)
 
-            match_id = match["match_id"]
-            print(f"Fetching match: {match_id}")
-
-            match_data = get_matches_from_riot(match_id)
-
-            # Process data 
-            if match_data:
-                process_match_data(match_data)
-                # Only mark as DONE if we actually got data or if it's a 404
-                mark_match_done(match_id)
-            else:
-                # If Riot 404s, it's a dead ID. Mark it DONE so we don't get stuck.
-                mark_match_done(match_id)
-
+            except Exception as e:
+                # If we hit a 429, we skip marking it done. 
+                print(f"Skipping completion for {m_id} due to: {e}")
+            
+            # Dynamic sleep to hit 95% of API limit
             elapsed = time.time() - start_time
-            wait_time = max(0, 1.26 - elapsed)
-
-            time.sleep(wait_time)
+            time.sleep(max(0, 1.26 - elapsed))
