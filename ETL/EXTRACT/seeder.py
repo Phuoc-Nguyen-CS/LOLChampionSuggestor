@@ -93,14 +93,21 @@ def get_recent_matches(puuid, count=15):
     
     return response.json() if response.status_code == 200 else []
 
-def seed_match_queue(match_ids):
+def seed_match_queue(match_ids, tier):
     """
     Uploads Match IDs to the Supabase match_queue table.
     Uses 'upsert' to ensure we don't create duplicate entries for the same match.
     """
     if not match_ids: return
-    data = [{"match_id": m_id, "status": "PENDING"} for m_id in match_ids]
+    
+    # We add the rank_tier to every row here
+    data = [
+        {"match_id": m_id, "status": "PENDING", "rank_tier": tier} 
+        for m_id in match_ids
+    ]
+    
     try:
+        # Note: Ensure your Supabase table has a 'rank_tier' column!
         supabase.table("match_queue").upsert(data, on_conflict="match_id").execute()
     except Exception as e:
         print(f"DB Error: {e}")
@@ -140,7 +147,7 @@ if __name__ == "__main__":
                 
                 # Seed the match_queue
                 if m_ids:
-                    seed_match_queue(m_ids)
+                    seed_match_queue(m_ids, tier_name)
                     print(f" + {tier_name} Progress: {i+1}/{len(active_subset)}", end="\r")
                 
                 # ~95% 100 req / 2 min limit

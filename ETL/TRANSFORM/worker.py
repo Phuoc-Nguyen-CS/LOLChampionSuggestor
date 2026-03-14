@@ -67,16 +67,14 @@ def mark_match_done(match_id):
     except Exception as e:
         print(f"Failed to mark match {match_id} as DONE: {e}")
 
-def process_match_data(match_data):
+def process_match_data(match_data, tier):
     info = match_data.get('info', {})
     if info.get('gameMode') != "CLASSIC": return
     
     participants = info.get('participants', [])
     if len(participants) != 10: return 
     
-    raw_tier = participants[0].get('tier', 'UNKNOWN')
-    tier = raw_tier.upper() if raw_tier else "UNKNOWN"
-    
+    print(f"In process_match_data: {tier}")
     # Contextual Bucketing
     duration = info.get('gameDuration', 0)
     dur_bucket = "EARLY_0_25" if duration < 1500 else ("MID_25_35" if duration < 2100 else "LATE_35_PLUS")
@@ -107,7 +105,7 @@ def process_match_data(match_data):
             if chals.get('fasterSupportQuestCompletion', 0): micro_score += 2
             if chals.get('visionScoreAdvantageLaneOpponent', 0): micro_score += 1
             # Macro: Kill Participation + Total Wards
-            macro_score = (chals.get('killParticipation', 0) * 100) + p.get('immobilizeAndKillWithAlly', 0)
+            macro_score = (chals.get('killParticipation', 0) * 100) + chals.get('immobilizeAndKillWithAlly', 0)
 
         elif pos == "JUNGLE":
             # Micro: Gank success + Invading (Enemy Jungle CS)
@@ -213,11 +211,13 @@ if __name__ == "__main__":
         for match in matches:
             start_time = time.time()
             m_id = match["match_id"]
-            
+            m_tier = match.get("rank_tier", "UNKNOWN")
+            print(m_tier)
+
             try:
                 data = get_matches_from_riot(m_id)
                 if data:
-                    process_match_data(data)
+                    process_match_data(data, m_tier)
                 
                 # If we get here without an exception, it's safe to mark DONE
                 mark_match_done(m_id)
