@@ -195,7 +195,7 @@ def process_match_data(match_data, tier):
         else:
             losers.append(cid)
 
-        # --- THE ML FEATURE EXTRACTION (Zero Bias) ---
+        # --- EXTRACTION  ---
         # 1. Farm: Total Minions + Jungle Camps
         raw_cs = p.get('totalMinionsKilled', 0) + p.get('neutralMinionsKilled', 0)
         
@@ -228,7 +228,7 @@ def process_match_data(match_data, tier):
             a_is_winner = (c_a_id == w['id'])
             a_data, b_data = (w, l) if a_is_winner else (l, w)
             
-            # THE TRUTH LABELS: Did Champion A out-perform Champion B in these categories?
+            # THE LABELS: Did Champion A out-perform Champion B in these categories?
             a_won_game = a_is_winner
             a_won_cs = a_data['cs'] > b_data['cs']
             a_won_kills = a_data['kills'] > b_data['kills']
@@ -291,31 +291,35 @@ def update_synergy_batch(champ_ids, did_win, tier):
 if __name__ == "__main__":
     print("Worker node starting...")
     while True:
-        print("Working")
         matches = claim_pending_matches(limit=5)
         if not matches:
-            print("Queue empty, waiting...")
+            print("Queue empty, resting for 30s...")
             time.sleep(30)
             continue
             
+        print(f"Claimed {len(matches)} matches. Processing...")
+
         for match in matches:
             start_time = time.time()
             m_id = match["match_id"]
             m_tier = match.get("rank_tier", "UNKNOWN")
-            print(m_tier)
 
             try:
+                print(f"Fetching {m_id} [{m_tier}]", end=" ", flush=True)
                 data = get_matches_from_riot(m_id)
+                
                 if data:
                     process_match_data(data, m_tier)
+                    print("[Success]")
+                else:
+                    print("[No Data (Skipped)]")
                 
-                # If we get here without an exception, it's safe to mark DONE
                 mark_match_done(m_id)
 
             except Exception as e:
-                # If we hit a 429, we skip marking it done. 
-                print(f"Skipping completion for {m_id} due to: {e}")
+                print(f"\nError on {m_id}: {e}")
             
-            # Dynamic sleep to hit 95% of API limit
+            # Rate limit management
             elapsed = time.time() - start_time
-            time.sleep(max(0, 1.26 - elapsed))
+            wait_time = max(0, 1.26 - elapsed)
+            time.sleep(wait_time)
