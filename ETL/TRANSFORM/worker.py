@@ -67,6 +67,106 @@ def mark_match_done(match_id):
     except Exception as e:
         print(f"Failed to mark match {match_id} as DONE: {e}")
 
+# Weighted
+# def process_match_data(match_data, tier):
+#     info = match_data.get('info', {})
+#     if info.get('gameMode') != "CLASSIC": return
+    
+#     participants = info.get('participants', [])
+#     if len(participants) != 10: return 
+    
+#     print(f"In process_match_data: {tier}")
+#     # Contextual Bucketing
+#     duration = info.get('gameDuration', 0)
+#     dur_bucket = "EARLY_0_25" if duration < 1500 else ("MID_25_35" if duration < 2100 else "LATE_35_PLUS")
+
+#     winners = []
+#     losers = []
+#     lanes = {} 
+
+#     for p in participants:
+#         pos = p.get('teamPosition')
+#         if not pos or pos == "": continue
+#         if pos not in lanes: lanes[pos] = {}
+        
+#         cid = p['championId']
+#         chals = p.get('challenges', {})
+        
+#         if p['win']:
+#             winners.append(cid)
+#         else:
+#             losers.append(cid)
+
+#         # --- ROLE-SPECIFIC SCORING ---
+#         micro_score = 0
+#         macro_score = 0
+        
+#         if pos == "UTILITY": # SUPPORT
+#             # Micro: Quest speed + Laning vision
+#             if chals.get('fasterSupportQuestCompletion', 0): micro_score += 2
+#             if chals.get('visionScoreAdvantageLaneOpponent', 0): micro_score += 1
+#             # Macro: Kill Participation + Total Wards
+#             macro_score = (chals.get('killParticipation', 0) * 100) + chals.get('immobilizeAndKillWithAlly', 0)
+
+#         elif pos == "JUNGLE":
+#             # Micro: Gank success + Invading (Enemy Jungle CS)
+#             micro_score = chals.get('takedownsBefore15', 0) 
+#             micro_score += (chals.get('totalEnemyJungleMinionsKilled', 0) // 10) # 1pt per 10 invades
+#             # Macro: Objectives (Dragons/Heralds/Barons)
+#             macro_score = (chals.get('teamBaronTakedowns', 0) * 500) + p.get('damageDealtToObjectives', 0)
+
+#         elif pos == "MIDDLE":
+#             # Micro: Early Lead + Solo Kills
+#             if chals.get('laningPhaseGoldExpAdvantage', 0): micro_score += 2
+#             micro_score += chals.get('soloKills', 0)
+#             # Macro: Roaming (Kill participation outside lane)
+#             macro_score = (chals.get('takedownsBefore15', 0) * 500) + p.get('damageDealtToObjectives', 0)
+
+#         else: # TOP / BOTTOM
+#             # Micro: Early Lead
+#             if chals.get('laningPhaseGoldExpAdvantage', 0): micro_score += 2
+#             if chals.get('maxCsAdvantageOnLaneOpponent', 0) > 15: micro_score += 1
+#             micro_score += chals.get('turretPlatesTaken', 0)
+#             micro_score += chals.get('soloKills', 0)
+#             # --- MACRO (The Map Pressure) ---
+#             if pos == "TOP":
+#                 # Top Macro = Structure Pressure + Contribution
+#                 # Using building damage to identify split-push and pressure. If you're able to apply pressure you're contributing
+#                 macro_score = p.get('damageDealtToBuildings', 0) + (p.get('totalDamageDealtToChampions', 0) * 0.1)
+            
+#             else: # BOTTOM (ADC)
+#                 # ADC Macro = Reliable Teamfight Output
+#                 # We weight champion damage much higher for ADCs as their 'Map Role'
+#                 macro_score = p.get('totalDamageDealtToChampions', 0) + p.get('damageDealtToObjectives', 0)
+
+#         player_data = {"id": cid, "micro": micro_score, "macro": macro_score}
+        
+#         if p['win']: lanes[pos]['winner'] = player_data
+#         else: lanes[pos]['loser'] = player_data
+
+#     # --- THE COMPARISON ENGINE ---
+#     for pos, data in lanes.items():
+#         if 'winner' in data and 'loser' in data:
+#             w, l = data['winner'], data['loser']
+#             c_a_id, c_b_id = (w['id'], l['id']) if w['id'] < l['id'] else (l['id'], w['id'])
+            
+#             a_is_winner = (c_a_id == w['id'])
+#             a_data, b_data = (w, l) if a_is_winner else (l, w)
+            
+#             # Win game but Win Lane ?
+#             a_won_game = a_is_winner
+#             a_won_micro = a_data['micro'] > b_data['micro']
+#             a_won_macro = a_data['macro'] > b_data['macro']
+
+#             supabase.rpc("update_matchup_holistic", {
+#                 "c_a": c_a_id, "c_b": c_b_id, "pos": pos, "t": tier, "dur": dur_bucket,
+#                 "a_won_game": a_won_game, "a_won_micro": a_won_micro, "a_won_macro": a_won_macro
+#             }).execute()
+
+#     update_synergy_batch(winners, True, tier)
+#     update_synergy_batch(losers, False, tier)
+
+# Unweighted
 def process_match_data(match_data, tier):
     info = match_data.get('info', {})
     if info.get('gameMode') != "CLASSIC": return
@@ -74,7 +174,6 @@ def process_match_data(match_data, tier):
     participants = info.get('participants', [])
     if len(participants) != 10: return 
     
-    print(f"In process_match_data: {tier}")
     # Contextual Bucketing
     duration = info.get('gameDuration', 0)
     dur_bucket = "EARLY_0_25" if duration < 1500 else ("MID_25_35" if duration < 2100 else "LATE_35_PLUS")
@@ -96,49 +195,26 @@ def process_match_data(match_data, tier):
         else:
             losers.append(cid)
 
-        # --- ROLE-SPECIFIC SCORING ---
-        micro_score = 0
-        macro_score = 0
+        # --- THE ML FEATURE EXTRACTION (Zero Bias) ---
+        # 1. Farm: Total Minions + Jungle Camps
+        raw_cs = p.get('totalMinionsKilled', 0) + p.get('neutralMinionsKilled', 0)
         
-        if pos == "UTILITY": # SUPPORT
-            # Micro: Quest speed + Laning vision
-            if chals.get('fasterSupportQuestCompletion', 0): micro_score += 2
-            if chals.get('visionScoreAdvantageLaneOpponent', 0): micro_score += 1
-            # Macro: Kill Participation + Total Wards
-            macro_score = (chals.get('killParticipation', 0) * 100) + chals.get('immobilizeAndKillWithAlly', 0)
+        # 2. Aggression: Early agency and mechanical 1v1 success
+        raw_kills = chals.get('soloKills', 0) + chals.get('takedownsBefore15', 0)
+        
+        # 3. Pressure: Raw damage to map structures and epic monsters
+        raw_obj = p.get('damageDealtToObjectives', 0) + p.get('damageDealtToBuildings', 0)
+        
+        # 4. Enablement: Vision map control and CC setups
+        raw_util = p.get('visionScore', 0) + chals.get('immobilizeAndKillWithAlly', 0)
 
-        elif pos == "JUNGLE":
-            # Micro: Gank success + Invading (Enemy Jungle CS)
-            micro_score = chals.get('takedownsBefore15', 0) 
-            micro_score += (chals.get('totalEnemyJungleMinionsKilled', 0) // 10) # 1pt per 10 invades
-            # Macro: Objectives (Dragons/Heralds/Barons)
-            macro_score = (chals.get('teamBaronTakedowns', 0) * 500) + p.get('damageDealtToObjectives', 0)
-
-        elif pos == "MIDDLE":
-            # Micro: Early Lead + Solo Kills
-            if chals.get('laningPhaseGoldExpAdvantage', 0): micro_score += 2
-            micro_score += chals.get('soloKills', 0)
-            # Macro: Roaming (Kill participation outside lane)
-            macro_score = (chals.get('takedownsBefore15', 0) * 500) + p.get('damageDealtToObjectives', 0)
-
-        else: # TOP / BOTTOM
-            # Micro: Early Lead
-            if chals.get('laningPhaseGoldExpAdvantage', 0): micro_score += 2
-            if chals.get('maxCsAdvantageOnLaneOpponent', 0) > 15: micro_score += 1
-            micro_score += chals.get('turretPlatesTaken', 0)
-            micro_score += chals.get('soloKills', 0)
-            # --- MACRO (The Map Pressure) ---
-            if pos == "TOP":
-                # Top Macro = Structure Pressure + Contribution
-                # Using building damage to identify split-push and pressure. If you're able to apply pressure you're contributing
-                macro_score = p.get('damageDealtToBuildings', 0) + (p.get('totalDamageDealtToChampions', 0) * 0.1)
-            
-            else: # BOTTOM (ADC)
-                # ADC Macro = Reliable Teamfight Output
-                # We weight champion damage much higher for ADCs as their 'Map Role'
-                macro_score = p.get('totalDamageDealtToChampions', 0) + p.get('damageDealtToObjectives', 0)
-
-        player_data = {"id": cid, "micro": micro_score, "macro": macro_score}
+        player_data = {
+            "id": cid, 
+            "cs": raw_cs, 
+            "kills": raw_kills, 
+            "obj": raw_obj, 
+            "util": raw_util
+        }
         
         if p['win']: lanes[pos]['winner'] = player_data
         else: lanes[pos]['loser'] = player_data
@@ -152,19 +228,33 @@ def process_match_data(match_data, tier):
             a_is_winner = (c_a_id == w['id'])
             a_data, b_data = (w, l) if a_is_winner else (l, w)
             
-            # Win game but Win Lane ?
+            # THE TRUTH LABELS: Did Champion A out-perform Champion B in these categories?
             a_won_game = a_is_winner
-            a_won_micro = a_data['micro'] > b_data['micro']
-            a_won_macro = a_data['macro'] > b_data['macro']
+            a_won_cs = a_data['cs'] > b_data['cs']
+            a_won_kills = a_data['kills'] > b_data['kills']
+            a_won_obj = a_data['obj'] > b_data['obj']
+            a_won_util = a_data['util'] > b_data['util']
 
-            supabase.rpc("update_matchup_holistic", {
-                "c_a": c_a_id, "c_b": c_b_id, "pos": pos, "t": tier, "dur": dur_bucket,
-                "a_won_game": a_won_game, "a_won_micro": a_won_micro, "a_won_macro": a_won_macro
-            }).execute()
+            try:
+                supabase.rpc("update_matchup_holistic", {
+                    "c_a": c_a_id, 
+                    "c_b": c_b_id, 
+                    "pos": pos, 
+                    "t": tier, 
+                    "dur": dur_bucket,
+                    "a_won_game": a_won_game, 
+                    "a_won_cs": a_won_cs, 
+                    "a_won_kills": a_won_kills, 
+                    "a_won_obj": a_won_obj,
+                    "a_won_util": a_won_util
+                }).execute()
+            except Exception as e:
+                print(f"Matchup RPC Error for {pos}: {e}")
 
+    # Process Duo Synergy
     update_synergy_batch(winners, True, tier)
     update_synergy_batch(losers, False, tier)
-
+    
 def update_synergy_batch(champ_ids, did_win, tier):
     """
     Calculates every duo combination on a team and updates the synergy_stats table.
