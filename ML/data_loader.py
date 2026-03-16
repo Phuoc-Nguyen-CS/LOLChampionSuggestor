@@ -30,11 +30,16 @@ def get_training_data():
     target_col = 'a_win_rate'
 
     # Feature model used to learn "why" a win happens
+    # feature_cols = [
+    #     'position', 'rank_tier', 'duration_bucket', 
+    #     'a_dmg', 'a_role', 'a_cc',
+    #     'b_dmg', 'b_role', 'b_cc',
+    #     'a_cs_win_rate', 'a_kill_win_rate', 'a_obj_win_rate', 'a_util_win_rate'
+    # ]
     feature_cols = [
         'position', 'rank_tier', 'duration_bucket', 
         'a_dmg', 'a_role', 'a_cc',
         'b_dmg', 'b_role', 'b_cc',
-        'a_cs_win_rate', 'a_kill_win_rate', 'a_obj_win_rate', 'a_util_win_rate'
     ]
 
     # Categorical data types
