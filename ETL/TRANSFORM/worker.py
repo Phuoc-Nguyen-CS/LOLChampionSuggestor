@@ -195,19 +195,17 @@ def process_match_data(match_data, tier):
         else:
             losers.append(cid)
 
-        # --- EXTRACTION  ---
-        # 1. Farm: Total Minions + Jungle Camps
+        # Gather raw data points
+        # Laning Stats
         raw_cs = p.get('totalMinionsKilled', 0) + p.get('neutralMinionsKilled', 0)
-        
-        # 2. Aggression: Early agency and mechanical 1v1 success
+        # Aggresiveness
         raw_kills = chals.get('soloKills', 0) + chals.get('takedownsBefore15', 0)
-        
-        # 3. Pressure: Raw damage to map structures and epic monsters
+        # Objectives around the map
         raw_obj = p.get('damageDealtToObjectives', 0) + p.get('damageDealtToBuildings', 0)
-        
-        # 4. Enablement: Vision map control and CC setups
+        # Utility Score
         raw_util = p.get('visionScore', 0) + chals.get('immobilizeAndKillWithAlly', 0)
 
+        # Store player stats to compare later
         player_data = {
             "id": cid, 
             "cs": raw_cs, 
@@ -219,37 +217,37 @@ def process_match_data(match_data, tier):
         if p['win']: lanes[pos]['winner'] = player_data
         else: lanes[pos]['loser'] = player_data
 
-    # --- THE COMPARISON ENGINE ---
+    # --- THE COMPARISON ENGINE  ---
     for pos, data in lanes.items():
         if 'winner' in data and 'loser' in data:
             w, l = data['winner'], data['loser']
+            
             c_a_id, c_b_id = (w['id'], l['id']) if w['id'] < l['id'] else (l['id'], w['id'])
             
             a_is_winner = (c_a_id == w['id'])
             a_data, b_data = (w, l) if a_is_winner else (l, w)
             
-            # THE LABELS: Did Champion A out-perform Champion B in these categories?
             a_won_game = a_is_winner
             a_won_cs = a_data['cs'] > b_data['cs']
             a_won_kills = a_data['kills'] > b_data['kills']
             a_won_obj = a_data['obj'] > b_data['obj']
             a_won_util = a_data['util'] > b_data['util']
 
+            print(f"   ∟ {pos.ljust(7)} | A: {str(c_a_id).ljust(4)} vs B: {str(c_b_id).ljust(4)} | "
+                  f"W:{int(a_won_game)} CS:{int(a_won_cs)} K:{int(a_won_kills)} O:{int(a_won_obj)} U:{int(a_won_util)}")
+
             try:
                 supabase.rpc("update_matchup_holistic", {
-                    "c_a": c_a_id, 
-                    "c_b": c_b_id, 
-                    "pos": pos, 
-                    "t": tier, 
-                    "dur": dur_bucket,
-                    "a_won_game": a_won_game, 
-                    "a_won_cs": a_won_cs, 
-                    "a_won_kills": a_won_kills, 
-                    "a_won_obj": a_won_obj,
+                    "c_a": c_a_id, "c_b": c_b_id, "pos": pos, 
+                    "t": tier, "dur": dur_bucket,
+                    "a_won_game": a_won_game, "a_won_cs": a_won_cs, 
+                    "a_won_kills": a_won_kills, "a_won_obj": a_won_obj,
                     "a_won_util": a_won_util
                 }).execute()
             except Exception as e:
-                print(f"Matchup RPC Error for {pos}: {e}")
+                print(f"      ⚠️ Matchup RPC Error: {e}")
+        else:
+            print(f"   ∟ {pos.ljust(7)} | [Skipping]: Incomplete head-to-head data.")
 
     # Process Duo Synergy
     update_synergy_batch(winners, True, tier)
