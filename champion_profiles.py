@@ -15,7 +15,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def populate_champion_profiles():
     print("Fetching latest champion data from DataDragon...")
-    # 1. Get latest patch and champ data
+    # Get latest patch and champ data
     patch = requests.get("https://ddragon.leagueoflegends.com/api/versions.json").json()[0]
     data = requests.get(f"https://ddragon.leagueoflegends.com/cdn/{patch}/data/en_US/champion.json").json()['data']
     

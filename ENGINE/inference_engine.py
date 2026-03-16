@@ -2,15 +2,16 @@ import xgboost as xgb
 import pandas as pd
 import os
 import sys
+import json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# from champion_profiles import populate_champion_profiles
 from champion_profiles import get_profiles_from_db
+
 
 class DraftInference:
     def __init__(self):
         # Using XGBRegressor for better compatibility with DataFrames
         base_path = os.path.dirname(__file__)
-        print(base_path)
+
         # Build paths to the models folder inside ML
         counter_path = os.path.normpath(os.path.join(base_path, "..", "ML", "models", "champion_model.json"))
         synergy_path = os.path.normpath(os.path.join(base_path, "..", "ML", "models", "synergy_model.json"))
@@ -23,11 +24,28 @@ class DraftInference:
 
         # Load your profiles for the "Available Champions" list    
         self.all_profiles = get_profiles_from_db()
+                
+        with open(os.path.join(base_path, "champion_roles.json"), "r") as f:
+            self.role_guardrails = json.load(f)
 
-    def get_available_champions(self, picked_champs):
+    def get_available_champions(self, picked_champs, requested_position):
         # Filters out any champion already in the game
         picked_names = [c['name'] for c in picked_champs]
-        return [c for c in self.all_profiles if c['name'] not in picked_names]
+        valid_candidates = []
+
+        for c in self.all_profiles:
+            # Is champ in game?
+            name = c['name']
+            if name in picked_names:
+                continue
+
+            # Is champ viable in the role?
+            viable_roles = self.role_guardrails.get(name, [])
+            if requested_position in viable_roles:
+                valid_candidates.append(c)
+
+        # print(f"The valid candidates are:\n{valid_candidates}")
+        return valid_candidates
 
     def build_feature_row(self, candidate, opponent, rank, pos):
         """Matches the 13 columns in xgboost_training_view"""
@@ -41,11 +59,6 @@ class DraftInference:
             'b_dmg': [opponent['damage_type']],
             'b_role': [opponent['role_class']],
             'b_cc': [opponent['cc_tier']],
-            # We provide 'average' performance stats for a neutral prediction
-            'a_cs_win_rate': [0.5],
-            'a_kill_win_rate': [0.5],
-            'a_obj_win_rate': [0.5],
-            'a_util_win_rate': [0.5]
         }
         df = pd.DataFrame(data)
         
@@ -75,7 +88,7 @@ class DraftInference:
 
     def suggest_best_pick(self, allies, enemies, rank, position):
         recommendations = []
-        available_champs = self.get_available_champions(allies + enemies)
+        available_champs = self.get_available_champions(allies + enemies, position)
 
         for candidate in available_champs:
             # Calculate Counter Score (vs all 5 enemies)
