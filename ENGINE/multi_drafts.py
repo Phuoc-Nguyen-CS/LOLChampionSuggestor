@@ -12,7 +12,7 @@ def run_test_suite():
     # Test scenarios
     test_cases = [
         {
-            "name": "Scenario 1: The 'Wombo Combo' Synergy",
+            "name": "Scenario 1: The Synergy",
             "description": "Looking for a Jungler to synergize with a heavy-engage Mid/Top duo.",
             "position": "JUNGLE",
             "rank": "EMERALD",
@@ -46,7 +46,7 @@ def run_test_suite():
         },
         {
             "name": "Scenario 3: Protect the President",
-            "description": "Team has a hypercarry. Enemies have heavy dive assassins. Support Chooses.",
+            "description": "Team has a hypercarry. Enemies have heavy dive assassins.",
             "position": "SUPPORT",
             "rank": "CHALLENGER",
             "allies": [
@@ -62,7 +62,7 @@ def run_test_suite():
         {
             "name": "Scenario 4: First Pick (Blind Draft)",
             "description": "No allies, no enemies. Testing if the model suggests universally safe/strong Mid laners.",
-            "position": "MIDDLE",
+            "position": "BOTTOM",
             "rank": "CHALLENGER",
             "allies": [],
             "enemies": []
@@ -71,7 +71,7 @@ def run_test_suite():
             "name": "Scenario 5: Last Pick Counter",
             "description": "Board is fully visible. Testing exact counter-picking logic for the Bottom Lane.",
             "position": "BOTTOM",
-            "rank": "MASTER",
+            "rank": "DIAMOND",
             "allies": [
                 {"name": "Shen", "damage_type": "AD", "role_class": "TANK", "cc_tier": 3},
                 {"name": "Amumu", "damage_type": "AP", "role_class": "TANK", "cc_tier": 3},
@@ -84,6 +84,25 @@ def run_test_suite():
                 {"name": "Zac", "damage_type": "AP", "role_class": "TANK", "cc_tier": 3},
                 {"name": "Syndra", "damage_type": "AP", "role_class": "MAGE", "cc_tier": 2},
                 {"name": "Jax", "damage_type": "AD", "role_class": "FIGHTER", "cc_tier": 2}
+            ]
+        },
+        {
+            "name": "Scenario 6: Anh's Game",
+            "description": "Mid lane last pick from Anh's Ranked Game",
+            "position": "MID",
+            "rank": "DIAMOND",
+            "allies": [
+                {"name": "Maokai", "damage_type": "AP", "role_class": "TANK", "cc_tier": 3},
+                {"name": "Nunu", "damage_type": "AP", "role_class": "TANK", "cc_tier": 3},
+                {"name": "Yone", "damage_type": "AD", "role_class": "FIGHTER", "cc_tier": 2},
+                {"name": "Ziggs", "damage_type": "AP", "role_class": "BOTTOM", "cc_tier": 1}
+            ],
+            "enemies": [
+                {"name": "Shaco", "damage_type": "AD", "role_class": "ASSASSIN", "cc_tier": 2},
+                {"name": "Morgana", "damage_type": "AP", "role_class": "SUPPORT", "cc_tier": 3},
+                {"name": "Ashe", "damage_type": "AD", "role_class": "MARKSMAN", "cc_tier": 3},
+                {"name": "Lux", "damage_type": "AP", "role_class": "MAGE", "cc_tier": 2},
+                {"name": "Tryndamere", "damage_type": "AD", "role_class": "FIGHTER", "cc_tier": 1}
             ]
         }
     ]

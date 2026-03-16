@@ -113,6 +113,13 @@ class DraftInference:
 
             # Final Weighted Average (60% Counter / 40% Synergy)
             final_score = (c_score * 0.6) + (s_score * 0.4)
+
+            ally_damage_types = [a['damage_type'] for a in allies] 
+            if candidate.get('damage_type') in ally_damage_types:
+                count = ally_damage_types.count(candidate['damage_type'])
+                if count >= 2:
+                    final_score -= 0.03 * count
+
             recommendations.append({"name": candidate['name'], "score": final_score})
 
         return sorted(recommendations, key=lambda x: x['score'], reverse=True)[:3]
