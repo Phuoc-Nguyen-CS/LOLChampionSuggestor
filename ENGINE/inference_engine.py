@@ -56,14 +56,20 @@ class DraftInference:
             'a_dmg': [candidate['damage_type']],
             'a_role': [candidate['role_class']],
             'a_cc': [candidate['cc_tier']],
+            'a_utility': [candidate.get('utility_tier', 1)],
             'b_dmg': [opponent['damage_type']],
             'b_role': [opponent['role_class']],
             'b_cc': [opponent['cc_tier']],
+            'b_utility': [opponent.get('utility_tier', 1)]
         }
         df = pd.DataFrame(data)
         
         # XGBoost requires categorical columns to be explicitly typed
-        cat_cols = ['position', 'rank_tier', 'duration_bucket', 'a_dmg', 'a_role', 'b_dmg', 'b_role']
+        cat_cols = [
+            'position', 'rank_tier', 'duration_bucket', 
+            'a_dmg', 'a_role', 'a_cc', 'a_utility',
+            'b_dmg', 'b_role', 'b_cc', 'b_utility'
+        ]
         for col in cat_cols:
             df[col] = df[col].astype('category')
         return df
@@ -71,37 +77,59 @@ class DraftInference:
     def build_synergy_row(self, candidate, ally, rank):
         """Matches the columns in xgboost_synergy_view"""
         data = {
-            'rank_tier': [rank],
-            'a_dmg': [candidate['damage_type']],
-            'a_role': [candidate['role_class']],
-            'a_cc': [candidate['cc_tier']],
-            'b_dmg': [ally['damage_type']],
-            'b_role': [ally['role_class']],
-            'b_cc': [ally['cc_tier']]
-        }
+        'rank_tier': [rank],
+        'a_dmg': [candidate['damage_type']],
+        'a_role': [candidate['role_class']],
+        'a_cc': [candidate['cc_tier']],
+        'b_dmg': [ally['damage_type']],
+        'b_role': [ally['role_class']],
+        'b_cc': [ally['cc_tier']],
+        'a_utility': [candidate.get('utility_tier', 1)], 
+        'b_utility': [ally.get('utility_tier', 1)],     
+    }
         df = pd.DataFrame(data)
         
-        cat_cols = ['rank_tier', 'a_dmg', 'a_role', 'a_cc', 'b_dmg', 'b_role', 'b_cc']
+        cat_cols = [
+            'rank_tier', 
+            'a_dmg', 'a_role', 'a_cc', 'a_utility',
+            'b_dmg', 'b_role', 'b_cc', 'b_utility'
+        ]
         for col in cat_cols:
             df[col] = df[col].astype('category')
         return df
 
     def suggest_best_pick(self, allies, enemies, rank, position):
         recommendations = []
+        # Filter candidates based on viable positions
         available_champs = self.get_available_champions(allies + enemies, position)
 
         for candidate in available_champs:
-            # Calculate Counter Score (vs all 5 enemies)
+            # --- COUNTER SCORE CALCULATION (Weighted by Predicted Roles) ---
             c_score = 0
             if enemies:
+                total_weight = 0
+                weighted_c_score = 0
+                
                 for enemy in enemies:
+                    # Get the predicted roles for this enemy from our JSON
+                    predicted_roles = self.role_guardrails.get(enemy['name'], [])
+                    
+                    # Determine weight: 3x if they could be our direct lane opponent, 1x otherwise
+                    # If roles are unknown/empty, we treat as a standard 1x weight
+                    weight = 3.0 if position in predicted_roles else 1.0
+                    
+                    # Build the row and predict
                     row = self.build_feature_row(candidate, enemy, rank, position)
-                    c_score += float(self.counter_model.predict(row)[0])
-                c_score /= len(enemies)
+                    prediction = float(self.counter_model.predict(row)[0])
+                    
+                    weighted_c_score += (prediction * weight)
+                    total_weight += weight
+                
+                c_score = weighted_c_score / total_weight
             else:
-                c_score = 0.5 # Default if no enemies picked yet
+                c_score = 0.5
 
-            # Calculate Synergy Score (vs all current allies)
+            # --- SYNERGY SCORE CALCULATION ---
             s_score = 0
             if allies:
                 for ally in allies:
@@ -111,15 +139,19 @@ class DraftInference:
             else:
                 s_score = 0.5
 
-            # Final Weighted Average (60% Counter / 40% Synergy)
+            # --- FINAL WEIGHTING AND PENALTIES ---
+            # 60% Counter Logic / 40% Synergy Logic
             final_score = (c_score * 0.6) + (s_score * 0.4)
 
+            # Apply the "Mage Bot" Penalty to offset mage bot high winrate
             ally_damage_types = [a['damage_type'] for a in allies] 
             if candidate.get('damage_type') in ally_damage_types:
                 count = ally_damage_types.count(candidate['damage_type'])
                 if count >= 2:
+                    # Heavy penalty for 3+ of same damage type, minor for 2
                     final_score -= 0.03 * count
 
             recommendations.append({"name": candidate['name'], "score": final_score})
 
+        # Return Top 3 recommendations
         return sorted(recommendations, key=lambda x: x['score'], reverse=True)[:3]

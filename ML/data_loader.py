@@ -49,14 +49,15 @@ def get_training_data():
     # Feature model used to learn "why" a win happens
     feature_cols = [
         'position', 'rank_tier', 'duration_bucket', 
-        'a_dmg', 'a_role', 'a_cc',
-        'b_dmg', 'b_role', 'b_cc',
+        'a_dmg', 'a_role', 'a_cc', 'a_utility',
+        'b_dmg', 'b_role', 'b_cc', 'b_utility'
     ]
 
     # Categorical data types
     categorical_features = [
         'position', 'rank_tier', 'duration_bucket', 
-        'a_dmg', 'a_role', 'b_dmg', 'b_role'
+        'a_dmg', 'a_role', 'a_cc', 'a_utility',
+        'b_dmg', 'b_role', 'b_cc', 'b_utility'
     ]
 
     for col in categorical_features:
@@ -101,6 +102,7 @@ def get_synergy_training_data():
         'rank_tier', 
         'a_dmg', 'a_role', 'a_cc',
         'b_dmg', 'b_role', 'b_cc',
+        'a_utility', 'b_utility'
     ]
 
     # Casting to category for XGBoost native support
