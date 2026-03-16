@@ -50,13 +50,39 @@ def get_training_data():
     x = df[feature_cols] # Why the win happens
     y = df[target_col]   # The win chance
     meta = df[metadata_cols] # Translation Key (IDs -> Names)
-    weights = df['total_sample_size'] # How much we trust each rows
+    weights = df['total_sample_size'] # total size of the given data
 
     print(f"Loaded {len(df)} matchups for training.")
     return x, y, meta, weights
 
+def get_synergy_training_data():
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_KEY")
+    supabase = create_client(url, key)
+    
+    response = supabase.table("xgboost_synergy_view").select("*").execute()
+    df = pd.DataFrame(response.data)
+
+    feature_cols = [
+        'rank_tier', 
+        'a_dmg', 'a_role', 'a_cc',
+        'b_dmg', 'b_role', 'b_cc',
+    ]
+
+    # Casting to category for XGBoost native support
+    for col in feature_cols:
+        df[col] = df[col].astype('category')
+
+    return df[feature_cols], df['synergy_win_rate'], df[['champ_a_id', 'champ_b_id']], df['total_sample_size']
+
 if __name__ == "__main__":
     x, y, meta, weights = get_training_data()
+    print("\n--- Features ---")
+    print(x.head())
+    print("\n--- Metadata (Omitted) ---")
+    print(meta.head())
+
+    x, y, meta, weights = get_synergy_training_data()
     print("\n--- Features ---")
     print(x.head())
     print("\n--- Metadata (Omitted) ---")
