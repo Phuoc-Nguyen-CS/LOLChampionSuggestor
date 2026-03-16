@@ -303,7 +303,7 @@ if __name__ == "__main__":
             m_tier = match.get("rank_tier", "UNKNOWN")
 
             try:
-                print(f"Fetching {m_id} [{m_tier}]", end=" ", flush=True)
+                print(f"Fetching {m_id} [{m_tier}]", end="\n", flush=True)
                 data = get_matches_from_riot(m_id)
                 
                 if data:
