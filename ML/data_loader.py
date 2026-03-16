@@ -14,9 +14,26 @@ def get_training_data():
     key = os.environ.get("SUPABASE_KEY")
     supabase = create_client(url, key)
 
-    # Grab the view
-    response = supabase.table("xgboost_training_view").select("*").execute()
-    df = pd.DataFrame(response.data)
+    all_data = []
+    chunk_size = 1000
+    offset = 0
+
+    print("Fetching training data...")
+    while True:
+        # Grab the view
+        response = supabase.table("xgboost_training_view")\
+            .select("*")\
+            .range(offset, offset + chunk_size - 1)\
+            .execute()
+        data = response.data 
+        if not data:
+            break
+
+        all_data.extend(data)
+        offset += chunk_size
+        print(f"    Loaded {len(all_data)} rows")
+
+    df = pd.DataFrame(all_data)
 
     if df.empty:
         print("No data found in view")
@@ -59,8 +76,26 @@ def get_synergy_training_data():
     key = os.environ.get("SUPABASE_KEY")
     supabase = create_client(url, key)
     
-    response = supabase.table("xgboost_synergy_view").select("*").execute()
-    df = pd.DataFrame(response.data)
+    print(f"Fetching training data...")
+    
+    offset = 0
+    all_data = []
+    chunk_size = 1000
+
+    while(True):
+        response = supabase.table("xgboost_synergy_view")\
+            .select("*")\
+            .range(offset, offset + chunk_size - 1)\
+            .execute()
+        data = response.data 
+        if not data:
+            break
+
+        all_data.extend(data)
+        offset += chunk_size
+        print(f"    Loaded {len(all_data)} rows")
+
+    df = pd.DataFrame(all_data)
 
     feature_cols = [
         'rank_tier', 
