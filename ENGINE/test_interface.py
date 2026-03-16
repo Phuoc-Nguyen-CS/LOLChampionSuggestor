@@ -1,15 +1,15 @@
 import os
+from dotenv import load_dotenv
 from inference_engine import DraftInference
 
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+
 def test_vacuum_simulation():
-    # Initialize the engine (this loads .json models)
+    # Initialize engine (loads models and champion profiles)
     engine = DraftInference()
 
     print("Starting Vacuum Test for Inference Engine...")
 
-    # Define a Mock Draft State
-    # In a real game, these would come from champion_profiles table
-    # For a vacuum test, we use the 'DNA' structure model expects
     mock_allies = [
         {"name": "Jarvan IV", "damage_type": "AD", "role_class": "TANK", "cc_tier": 3},
         {"name": "Orianna", "damage_type": "AP", "role_class": "MAGE", "cc_tier": 2}
@@ -20,11 +20,9 @@ def test_vacuum_simulation():
         {"name": "Malphite", "damage_type": "AP", "role_class": "TANK", "cc_tier": 3}
     ]
 
-    # Define Context
     rank = "EMERALD"
     position = "JUNGLE"
 
-    # Run Simulation
     print(f"Draft Context: {rank} - {position}")
     print(f"Allies: {[a['name'] for a in mock_allies]}")
     print(f"Enemies: {[e['name'] for e in mock_enemies]}")

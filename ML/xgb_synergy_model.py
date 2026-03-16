@@ -2,6 +2,7 @@ import xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
 import data_loader
+import os
 
 def train_synergy_model():
     print("Starting Training Pipeline...")
@@ -36,7 +37,9 @@ def train_synergy_model():
     print(f"Synergy Training Complete. Mean Absolute Error: {error:.4f}")
 
     # Save the model
-    model.save_model("models/synergy_model.json")
+    model_path = os.path.join(os.path.dirname(__file__), "models/champion_model.json")
+    model.save_model(model_path)
+    print(f"Model saved to: {model_path}")
 
 if __name__ == "__main__":
     train_synergy_model()

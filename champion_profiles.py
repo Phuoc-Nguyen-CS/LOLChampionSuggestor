@@ -50,6 +50,10 @@ def populate_champion_profiles():
     except Exception as e:
         print(f"Error populating profiles: {e}")
 
+def get_profiles_from_db():
+    response = supabase.table("champion_profiles").select("*").execute()
+    return response.data
+
 if __name__ == "__main__":
     # Run this once to setup your static data
     populate_champion_profiles()

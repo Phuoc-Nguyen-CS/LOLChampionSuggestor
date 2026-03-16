@@ -61,7 +61,7 @@ def train_model():
     # Save the model
     model_path = os.path.join(os.path.dirname(__file__), "models/champion_model.json")
     model.save_model(model_path)
-    print("Model saved to: {model_path}")
+    print(f"Model saved to: {model_path}")
 
 if __name__ == "__main__":
     train_model()

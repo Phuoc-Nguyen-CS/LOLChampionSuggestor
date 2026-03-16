@@ -3,7 +3,8 @@ import pandas as pd
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from champion_profiles import populate_champion_profiles
+# from champion_profiles import populate_champion_profiles
+from champion_profiles import get_profiles_from_db
 
 class DraftInference:
     def __init__(self):
@@ -11,8 +12,8 @@ class DraftInference:
         base_path = os.path.dirname(__file__)
         print(base_path)
         # Build paths to the models folder inside ML
-        counter_path = os.path.join(base_path, "models", "champion_model.json")
-        synergy_path = os.path.join(base_path, "models", "synergy_model.json")
+        counter_path = os.path.normpath(os.path.join(base_path, "..", "ML", "models", "champion_model.json"))
+        synergy_path = os.path.normpath(os.path.join(base_path, "..", "ML", "models", "synergy_model.json"))
 
         self.counter_model = xgb.XGBRegressor()
         self.counter_model.load_model(counter_path)
@@ -21,7 +22,7 @@ class DraftInference:
         self.synergy_model.load_model(synergy_path)
 
         # Load your profiles for the "Available Champions" list    
-        self.all_profiles = populate_champion_profiles()
+        self.all_profiles = get_profiles_from_db()
 
     def get_available_champions(self, picked_champs):
         # Filters out any champion already in the game
@@ -67,7 +68,7 @@ class DraftInference:
         }
         df = pd.DataFrame(data)
         
-        cat_cols = ['rank_tier', 'a_dmg', 'a_role', 'b_dmg', 'b_role']
+        cat_cols = ['rank_tier', 'a_dmg', 'a_role', 'a_cc', 'b_dmg', 'b_role', 'b_cc']
         for col in cat_cols:
             df[col] = df[col].astype('category')
         return df
@@ -77,7 +78,7 @@ class DraftInference:
         available_champs = self.get_available_champions(allies + enemies)
 
         for candidate in available_champs:
-            # 1. Calculate Counter Score (vs all 5 enemies)
+            # Calculate Counter Score (vs all 5 enemies)
             c_score = 0
             if enemies:
                 for enemy in enemies:
@@ -87,7 +88,7 @@ class DraftInference:
             else:
                 c_score = 0.5 # Default if no enemies picked yet
 
-            # 2. Calculate Synergy Score (vs all current allies)
+            # Calculate Synergy Score (vs all current allies)
             s_score = 0
             if allies:
                 for ally in allies:
@@ -97,7 +98,7 @@ class DraftInference:
             else:
                 s_score = 0.5
 
-            # 3. Final Weighted Average (60% Counter / 40% Synergy)
+            # Final Weighted Average (60% Counter / 40% Synergy)
             final_score = (c_score * 0.6) + (s_score * 0.4)
             recommendations.append({"name": candidate['name'], "score": final_score})
 
