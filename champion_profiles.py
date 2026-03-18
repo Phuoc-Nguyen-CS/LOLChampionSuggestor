@@ -24,17 +24,17 @@ def populate_champion_profiles():
         info = champ['info'] # Contains Attack, Defense, Magic, Difficulty
         primary_tag = tags[0].upper()
         
-        # 1. Damage Type Heuristic
+        # DAMAGE TYPE
         damage_type = "AD"
         if "Mage" in tags or "Support" in tags:
             damage_type = "AP"
         
-        # 2. CC Tier Heuristic
+        # CC TIER
         cc_tier = 1
         if "Tank" in tags or "Support" in tags: cc_tier = 3
         elif "Fighter" in tags or "Mage" in tags: cc_tier = 2
 
-        # 3. AUTOMATED UTILITY TIER
+        # AUTOMATED UTILITY TIER
         # Tier 3: Traditional "Support" primary tag + High Magic/Defense (Enchanters/Wardens)
         # Tier 2: Secondary "Support" tag or high Defense/CC
         # Tier 1: No support tags (Carry-focused)
@@ -49,13 +49,26 @@ def populate_champion_profiles():
         elif "Tank" in tags and info['defense'] > 7:
             utility_tier = 2 # Non-support tanks like Ornn/Sion provide utility via peel
         
+        # MOBILITY TIER
+        mobility_tier = 1
+        if "Assassin" in tags: mobility_tier = 3
+        elif "Fighter" in tags or info['attack'] > 7: mobility_tier = 2
+
+        # ENGAGE TIER
+        engage_tier = 1
+        if "Tank" in tags and info['defense'] > 7: engage_tier = 3
+        elif "Vanguard" in tags or "Diver" in tags: engage_tier = 3
+        elif "Support" in tags and info['Defense'] > 5: engage_tier = 3
+
         profiles.append({
             "champion_id": int(champ['key']),
             "name": champ['name'],
             "damage_type": damage_type,
             "role_class": primary_tag,
             "cc_tier": cc_tier,
-            "utility_tier": utility_tier # Add this to your dictionary
+            "utility_tier": utility_tier,
+            "mobility_tier": mobility_tier,
+            "engage_tier": engage_tier,
         })
 
 

@@ -2,7 +2,6 @@ import os
 from dotenv import load_dotenv
 from inference_engine import DraftInference
 
-# Load .env before doing anything else
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 def run_test_suite():
@@ -51,12 +50,16 @@ def run_test_suite():
             "rank": "CHALLENGER",
             "allies": [
                 {"name": "Kog'Maw", "damage_type": "AP", "role_class": "MARKSMAN", "cc_tier": 1},
-                {"name": "Ornn", "damage_type": "AP", "role_class": "TANK", "cc_tier": 3}
+                {"name": "Ornn", "damage_type": "AP", "role_class": "TANK", "cc_tier": 3},
+                {"name": "Syndra", "damage_type": "AP", "role_class": "MAGE", "cc_tier": 2},
+                {"name": "Rammus", "damage_type": "AP", "role_class": "TANK", "cc_tier": 2},
             ],
             "enemies": [
                 {"name": "Talon", "damage_type": "AD", "role_class": "ASSASSIN", "cc_tier": 1},
                 {"name": "Akali", "damage_type": "AP", "role_class": "ASSASSIN", "cc_tier": 1},
-                {"name": "Vi", "damage_type": "AD", "role_class": "FIGHTER", "cc_tier": 2}
+                {"name": "Vi", "damage_type": "AD", "role_class": "FIGHTER", "cc_tier": 2},
+                {"name": "Jinx", "damage_type": "AD", "role_class": "MARKSMAN", "cc_tier": 1},
+                {"name": "Karma", "damage_type": "AP", "role_class": "MAGE", "cc_tier": 2}
             ]
         },
         {

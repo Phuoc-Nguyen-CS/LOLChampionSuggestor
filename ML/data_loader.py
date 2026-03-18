@@ -49,19 +49,22 @@ def get_training_data():
     # Feature model used to learn "why" a win happens
     feature_cols = [
         'position', 'rank_tier', 'duration_bucket', 
-        'a_dmg', 'a_role', 'a_cc', 'a_utility',
-        'b_dmg', 'b_role', 'b_cc', 'b_utility'
+        'a_dmg', 'a_role', 'a_cc', 'a_utility', 'a_range',
+        'b_dmg', 'b_role', 'b_cc', 'b_utility', 'b_range'
     ]
 
     # Categorical data types
     categorical_features = [
         'position', 'rank_tier', 'duration_bucket', 
-        'a_dmg', 'a_role', 'a_cc', 'a_utility',
-        'b_dmg', 'b_role', 'b_cc', 'b_utility'
+        'a_dmg', 'a_role', 'a_cc', 'a_utility', 'a_range',
+        'b_dmg', 'b_role', 'b_cc', 'b_utility', 'b_range'
     ]
 
     for col in categorical_features:
-        df[col] = df[col].astype('category')
+        if col in df.columns:
+            df[col] = df[col].astype('category')
+        else:
+            print(f"WARNING: Expected column '{col}' is missing from the database view")
 
     # Split the data
     x = df[feature_cols] # Why the win happens
@@ -100,8 +103,8 @@ def get_synergy_training_data():
 
     feature_cols = [
         'rank_tier', 
-        'a_dmg', 'a_role', 'a_cc',
-        'b_dmg', 'b_role', 'b_cc',
+        'a_dmg', 'a_role', 'a_cc', 'a_range',
+        'b_dmg', 'b_role', 'b_cc', 'b_range',
         'a_utility', 'b_utility'
     ]
 
