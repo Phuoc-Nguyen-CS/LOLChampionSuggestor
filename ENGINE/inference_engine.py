@@ -57,18 +57,20 @@ class DraftInference:
             'a_role': [candidate['role_class']],
             'a_cc': [candidate['cc_tier']],
             'a_utility': [candidate.get('utility_tier', 1)],
+            'a_range': [candidate.get('range_tier', 1)],
             'b_dmg': [opponent['damage_type']],
             'b_role': [opponent['role_class']],
             'b_cc': [opponent['cc_tier']],
-            'b_utility': [opponent.get('utility_tier', 1)]
+            'b_utility': [opponent.get('utility_tier', 1)],
+            'b_range': [opponent.get('range_tier', 1)]
         }
         df = pd.DataFrame(data)
         
         # XGBoost requires categorical columns to be explicitly typed
         cat_cols = [
             'position', 'rank_tier', 'duration_bucket', 
-            'a_dmg', 'a_role', 'a_cc', 'a_utility',
-            'b_dmg', 'b_role', 'b_cc', 'b_utility'
+            'a_dmg', 'a_role', 'a_cc', 'a_utility', 'a_range',
+            'b_dmg', 'b_role', 'b_cc', 'b_utility', 'b_range',
         ]
         for col in cat_cols:
             df[col] = df[col].astype('category')
@@ -77,22 +79,25 @@ class DraftInference:
     def build_synergy_row(self, candidate, ally, rank):
         """Matches the columns in xgboost_synergy_view"""
         data = {
-        'rank_tier': [rank],
-        'a_dmg': [candidate['damage_type']],
-        'a_role': [candidate['role_class']],
-        'a_cc': [candidate['cc_tier']],
-        'b_dmg': [ally['damage_type']],
-        'b_role': [ally['role_class']],
-        'b_cc': [ally['cc_tier']],
-        'a_utility': [candidate.get('utility_tier', 1)], 
-        'b_utility': [ally.get('utility_tier', 1)],     
-    }
+            'rank_tier': [rank],
+            'a_dmg': [candidate['damage_type']],
+            'a_role': [candidate['role_class']],
+            'a_cc': [candidate['cc_tier']],
+            'a_range': [candidate.get('range_tier', 1)],     
+            'b_dmg': [ally['damage_type']],
+            'b_role': [ally['role_class']],
+            'b_cc': [ally['cc_tier']],
+            'b_range': [ally.get('range_tier', 1)],
+            'a_utility': [candidate.get('utility_tier', 1)], 
+            'b_utility': [ally.get('utility_tier', 1)]
+        }
         df = pd.DataFrame(data)
         
         cat_cols = [
             'rank_tier', 
-            'a_dmg', 'a_role', 'a_cc', 'a_utility',
-            'b_dmg', 'b_role', 'b_cc', 'b_utility'
+            'a_dmg', 'a_role', 'a_cc', 'a_range',
+            'b_dmg', 'b_role', 'b_cc', 'b_range',
+            'a_utility', 'b_utility'
         ]
         for col in cat_cols:
             df[col] = df[col].astype('category')
