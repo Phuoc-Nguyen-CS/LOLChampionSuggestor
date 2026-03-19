@@ -4,7 +4,7 @@ import os
 import sys
 import json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from champion_profiles import get_profiles_from_db
+from DEPRECATED.champion_profiles import get_profiles_from_db
 
 
 class DraftInference:
