@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, r2_score
 from supabase import create_client, Client
 import json
+from dotenv import load_dotenv
 
 class DraftModelTrainer:
     """
@@ -15,7 +16,7 @@ class DraftModelTrainer:
 
     def __init__(self):
         self.supabase_url = os.getenv("SUPABASE_URL")
-        self.supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        self.supabase_key = os.getenv("SUPABASE_KEY")
         self.client: Client = None
         self.model = None
         
@@ -56,8 +57,15 @@ class DraftModelTrainer:
                     break
 
                 all_data.extend(data)
-                offset == chunk_size 
+                offset += chunk_size 
                 print(f"    Loaded {len(all_data)} rows")
             df = pd.DataFrame(all_data)
         except Exception as e:
             print(f"[CRITICAL] Failed to grab data from xgboost_training_view: {str(e)}")
+
+if __name__ == "__main__":
+    trainer = DraftModelTrainer()
+    trainer.init_connection()
+
+    data = trainer.load_training_data()
+    print(data)
