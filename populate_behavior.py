@@ -137,7 +137,6 @@ def run_unit_test():
     print("Testing Logic...")
     df = process_matches([mock_match])
     
-    # Check if Annie's magic share is 90% (18k / 20k)
     annie = df[df['champion_name'] == "Annie"].iloc[0]
     print(f"Verified Magic Share: {annie['magic_share']:.2f} (Expected: 0.90)")
     print(f"Verified Gold Share: {annie['gold_share']:.2f} (Expected: 1.0 for this mock solo test)")

@@ -64,11 +64,12 @@ class DraftModelTrainer:
         
         params = {
             'objective': 'binary:logistic',
-            'n_estimators': 2000,
-            'learning_rate': 0.02,
-            'max_depth': 4, # Slightly shallower to prevent overfitting on small data
-            'subsample': 0.7,
-            'colsample_bytree': 0.7,
+            'n_estimators': 500,
+            'learning_rate': 0.05,
+            'max_depth': 3, 
+            'min_child_weight': 10,
+            'subsample': 0.8,
+            'colsample_bytree': 0.8,
             'early_stopping_rounds': 50,
             'random_state': 42
         }

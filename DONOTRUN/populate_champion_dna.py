@@ -1,3 +1,4 @@
+# IMPORTANT PLEASE DO NOT RUN AS IT WILL FUCK UP THE WHOLE DATABASE!
 import requests
 import os
 import re
@@ -86,85 +87,6 @@ def scan_kit(name, data):
 
     # print(f"{mechanics}\n {shield_self}\n {shield_ally}\n {heal_self}\n {heal_ally}\n {point_and_click}")
     return mechanics, shield_self, shield_ally, heal_self, heal_ally, point_and_click
-# def scan_kit(name, data):
-#     """
-#     Scans the passive and spells for mechanical keywords.
-#     Fixes case-sensitivity bugs and DataDragon key typos.
-#     """
-#     spells = data.get('spells', [])
-#     passive = data.get('passive', {})
-#     champ_name_lower = name.lower()
-    
-#     # 1. PREPARE TEXT: Ensure everything is lowercased immediately
-#     # FIX: Use 'tooltip' (singular), not 'tooltips'
-#     processed_spells = []
-#     for s in spells:
-#         desc = s.get('description', '').lower()
-#         tip = s.get('tooltip', '').lower() # Correct key is singular
-#         processed_spells.append(f"{desc} {tip}")
-        
-#     full_text = passive.get('description', '').lower() + " " + " ".join(processed_spells)
-
-#     # 2. MECHANICS SCANNER (Regex)
-#     mechanics = {
-#         "hard_cc": len(re.findall(r'(stun|knockup|knock up|knocking them aside|aside|airborne|suppression|suppress|fear|charm|taunt|knockback|knock back|berserk|polymorph|drag|drags)', full_text)),
-#         "soft_cc": len(re.findall(r'(slow|root|snare|silence|blind|grounded|ground)', full_text)),
-#         "dash": len(re.findall(r'(dash|leap|jump|lunge)', full_text)),
-#         "blink": len(re.findall(r'(blink|teleport)', full_text)),
-#         "ms_steroid": len(re.findall(r'(bonus movement speed|bonus movespeed|move speed|movement speed)', full_text)),
-#         "invis": len(re.findall(r'(invisible|stealth|camouflage)', full_text)),
-#         "untargetable": len(re.findall(r'(untargetable)', full_text)),
-#         "invulnerable": len(re.findall(r'(invulnerable|stasis)', full_text)),
-#         "aoe": len(re.findall(r'(all enemies|nearby enemies|area|enemies in|each enemy)', full_text)),
-#         "terrain": len(re.findall(r'(terrain|wall|pillar|cataclysm)', full_text)),
-#         "resets": any(w in full_text for w in ['refresh', 'takedown']) and any(w in full_text for w in ['cooldown', 'reset']),
-#         "execute": any(w in full_text for w in ['execute', 'below % health', 'less than % health']),
-#         "global": any(w in full_text for w in ['global', 'anywhere on the map', 'entire map']),
-#         "disengage": len(re.findall(r'(knock back|push back|away from|distance between)', full_text))
-#     }
-
-#     # 3. POINT-AND-CLICK CC
-#     pnc_overrides = ["Annie", "Twisted Fate", "Pantheon", "Vi", "Malzahar", "Lulu", "Fiddlesticks", "Nocturne", "Ryze", "Maokai"]
-#     point_and_click = name in pnc_overrides
-
-#     # 4. SHIELDS & HEALS
-#     shield_self, shield_ally, heal_self, heal_ally = 0, 0, 0, 0
-    
-#     ally_keywords = ['ally', 'allies', 'teammate', 'teamate']
-#     self_keywords = ['self', 'himself', 'herself', champ_name_lower]
-
-#     for d in processed_spells:
-#         # --- Shield Logic ---
-#         if 'shield' in d:
-#             # Independent Check 1: Is it for an ally?
-#             if any(x in d for x in ally_keywords):
-#                 shield_ally += 1
-            
-#             # Independent Check 2: Is it for self?
-#             # Check for name/self keywords OR if NO ally is mentioned (selfish shield)
-#             is_self = any(x in d for x in self_keywords)
-#             no_ally_mentioned = not any(x in d for x in ally_keywords)
-            
-#             if is_self or no_ally_mentioned:
-#                 shield_self += 1
-
-#         # --- Heal Logic ---
-#         if any(x in d for x in ['heal', 'restore', 'recover']):
-#             if any(x in d for x in ally_keywords):
-#                 heal_ally += 1
-            
-#             is_self = any(x in d for x in self_keywords)
-#             no_ally_mentioned = not any(x in d for x in ally_keywords)
-            
-#             if is_self or no_ally_mentioned:
-#                 heal_self += 1
-                
-#         # --- standard PnC Check ---
-#         if not point_and_click:
-#             if any(cc in d for cc in ['stun', 'root', 'slow']) and "target" in d and "skillshot" not in d:
-#                 point_and_click = True
-
-#     return mechanics, shield_self, shield_ally, heal_self, heal_ally, point_and_click
 
 def populate_champion_dna():
     print("Fetching champion data...")
