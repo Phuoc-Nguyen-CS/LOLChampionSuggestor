@@ -21,6 +21,10 @@
         "JUNGLE",
         "SUPPORT"
     ],
+    "Ambessa": [
+        "TOP",
+        "JUNGLE"
+    ],
     "Anivia": [
         "MIDDLE",
         "TOP"
@@ -280,6 +284,11 @@
     "Master Yi": [
         "JUNGLE"
     ],
+    "Mel": [
+        "MID",
+        "SUPPORT",
+        "BOTTOM"
+    ],
     "Milio": [
         "SUPPORT"
     ],
@@ -495,8 +504,7 @@
         "MIDDLE"
     ],
     "Twitch": [
-        "BOTTOM",
-        "SUPPORT"
+        "BOTTOM"
     ],
     "Udyr": [
         "TOP",
@@ -576,6 +584,10 @@
     ],
     "Yuumi": [
         "SUPPORT"
+    ],
+    "Zaahen": [
+        "TOP",
+        "JUNGLE"
     ],
     "Zac": [
         "TOP",
