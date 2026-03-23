@@ -1,1 +1,1 @@
-["range_delta", "mobility_delta", "ms_delta", "lockdown_delta", "pick_delta", "save_delta", "peel_delta", "steroid_delta", "stealth_delta", "phys_dmg_delta", "magic_dmg_delta", "tankiness_delta", "waveclear_delta"]
+["anti_dive_score", "kiting_delta", "frontline_survival_index", "catch_delta", "raw_range_delta"]
