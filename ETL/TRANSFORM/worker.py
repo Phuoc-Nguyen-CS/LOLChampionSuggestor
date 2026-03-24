@@ -112,7 +112,7 @@ def process_match_data(match_data, tier, match_id):
             "heal_per_min": p.get('totalHeal', 0) / duration_mins,
             "ally_heal_per_min": p.get('totalHealsOnTeammates', 0) / duration_mins,
             "ally_shield_per_min": p.get("totalDamageShieldedOnTeammates", 0) / duration_mins,
-            "avg_damage_per_minute": total_dmg / duration_mins if duration_mins > 0 else 0
+            "damage_per_min": total_dmg / duration_mins if duration_mins > 0 else 0
         })
 
     # 3. Bulk Insert to Supabase (Replaces the old RPC calls)
