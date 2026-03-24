@@ -32,16 +32,25 @@ class DraftModelTrainer:
 
     def load_data(self):
         print("[DATABASE] Pulling training data...")
+        # Update this line to select all columns required for features and labels
         response = self.client.table("xgboost_training_view").select("*").execute()
+        
+        if not response.data:
+            raise ValueError("No data returned from the database.")
+
+        # Debugging information
+        match_ids = [r['match_id'] for r in response.data]
+        print(f"[DEBUG] Sample Match ID: {match_ids[0] if match_ids else 'None'}")
+        print(f"[DEBUG] Row Count: {len(match_ids)}")
+        
         df = pd.DataFrame(response.data).fillna(0)
         
-        # Scaling is vital so large numbers (tankiness) don't drown out small numbers (engage)
+        # Now that the columns exist in the dataframe, scaling will work
         df[self.feature_cols] = self.scaler.fit_transform(df[self.feature_cols])
         
         X = df[self.feature_cols]
         y = df[self.target_col].astype(int)
         
-        # Split 15% into a "Vault" that Optuna never sees
         return train_test_split(X, y, test_size=0.15, random_state=42)
 
     def tune_hyperparameters(self, x_train, y_train):
