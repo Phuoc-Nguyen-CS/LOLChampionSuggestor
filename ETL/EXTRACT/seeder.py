@@ -10,8 +10,10 @@ from supabase import create_client, Client
 import time
 
 load_dotenv()
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+# SUPABASE_URL = os.environ.get("SUPABASE_URL")
+# SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_URL = os.environ.get("TEMP_URL")
+SUPABASE_KEY = os.environ.get("TEMP_KEY")
 RIOT_API_KEY = os.environ.get("RIOT_API_KEY")
 
 # Configs for our data

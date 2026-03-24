@@ -31,23 +31,29 @@ class DraftModelTrainer:
         self.model = None
 
     def load_data(self):
-        print("[DATABASE] Pulling training data...")
-        # Update this line to select all columns required for features and labels
-        response = self.client.table("xgboost_training_view").select("*").execute()
+        cache_path = "models/training_cache.csv"
         
-        if not response.data:
-            raise ValueError("No data returned from the database.")
+        # Check if we have a recent local copy
+        if os.path.exists(cache_path):
+            print("[CACHE] Loading training data from local storage...")
+            df = pd.read_csv(cache_path)
+        else:
+            # If not, pull from Supabase and save it
+            print("[DATABASE] Pulling training data and creating local cache...")
+            response = self.client.table("xgboost_training_view").select("*").execute()
+            
+            if not response.data:
+                raise ValueError("No data returned from the database.")
+                
+            df = pd.DataFrame(response.data).fillna(0)
+            os.makedirs("models", exist_ok=True)
+            df.to_csv(cache_path, index=False) # Save to cache
 
         # Debugging information
-        match_ids = [r['match_id'] for r in response.data]
-        print(f"[DEBUG] Sample Match ID: {match_ids[0] if match_ids else 'None'}")
-        print(f"[DEBUG] Row Count: {len(match_ids)}")
+        print(f"[DEBUG] Row Count: {len(df)}")
         
-        df = pd.DataFrame(response.data).fillna(0)
-        
-        # Now that the columns exist in the dataframe, scaling will work
+        # Scaling and prep
         df[self.feature_cols] = self.scaler.fit_transform(df[self.feature_cols])
-        
         X = df[self.feature_cols]
         y = df[self.target_col].astype(int)
         

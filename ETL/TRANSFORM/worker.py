@@ -14,8 +14,10 @@ import itertools
 
 # Grab the environment variables
 load_dotenv()
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+# SUPABASE_URL = os.environ.get("SUPABASE_URL")
+# SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_URL = os.environ.get("TEMP_URL")
+SUPABASE_KEY = os.environ.get("TEMP_KEY")
 RIOT_API_KEY = os.environ.get("RIOT_API_KEY")
 
 # Initializing the Database Client
@@ -115,6 +117,7 @@ def process_match_data(match_data, tier, match_id):
     # 3. Bulk Insert to Supabase (Replaces the old RPC calls)
     try:
         supabase.table("match_participants").upsert(records, on_conflict="match_id, champion_id").execute()
+        # spooler.save_record("match_participants", records)
     except Exception as e:
         print(f"      [WARNING] Match Insert Error: {e}")
 
@@ -160,6 +163,8 @@ def sync_to_champion_behavior():
 
 if __name__ == "__main__":
     print("XGBoost Worker node starting...")
+    matches_processed = 0  # Initialize a counter
+    
     while True:
         matches = claim_pending_matches(limit=5)
         if not matches:
@@ -180,6 +185,7 @@ if __name__ == "__main__":
                 
                 if data:
                     process_match_data(data, m_tier, m_id)
+                    matches_processed += 1 # Increment successful matches
                     print("[Success]")
                 else:
                     print("[No Data (Skipped)]")
@@ -194,4 +200,6 @@ if __name__ == "__main__":
             wait_time = max(0, 1.26 - elapsed)
             time.sleep(wait_time)
             
-        sync_to_champion_behavior()
+        if matches_processed >= 100:
+            sync_to_champion_behavior()
+            matches_processed = 0 # Reset counter
