@@ -116,50 +116,51 @@ def process_match_data(match_data, tier, match_id):
 
     # 3. Bulk Insert to Supabase (Replaces the old RPC calls)
     try:
-        supabase.table("match_participants").upsert(records, on_conflict="match_id, champion_id").execute()
+        # supabase.table("match_participants").upsert(records, on_conflict="match_id, champion_id").execute()
+        supabase.table("match_participants").insert(records).execute()
         # spooler.save_record("match_participants", records)
     except Exception as e:
         print(f"      [WARNING] Match Insert Error: {e}")
 
-def sync_to_champion_behavior():
-    """Pulls averages from the SQL view and updates the champion_behavior table."""
-    print("Syncing Layer 2 to champion_behavior...", end=" ", flush=True)
-    try:
-        # stats = supabase.table("champion_behavior").select("*").execute().data
-        stats = supabase.table("v_champion_behavior_agg").select("*").execute().data
-        if not stats:
-            print("[No Data]")
-            return
+# def sync_to_champion_behavior():
+#     """Pulls averages from the SQL view and updates the champion_behavior table."""
+#     print("Syncing Layer 2 to champion_behavior...", end=" ", flush=True)
+#     try:
+#         # stats = supabase.table("champion_behavior").select("*").execute().data
+#         stats = supabase.table("v_champion_behavior_agg").select("*").execute().data
+#         if not stats:
+#             print("[No Data]")
+#             return
 
-        profiles = []
-        for row in stats:
-            early_wr = row['early_game_wr'] or 0
-            late_wr = row['late_game_wr'] or 0
+#         profiles = []
+#         for row in stats:
+#             early_wr = row['early_game_wr'] or 0
+#             late_wr = row['late_game_wr'] or 0
             
-            scaling_tier = 2
-            if late_wr > (early_wr + 0.03): scaling_tier = 3
-            elif early_wr > (late_wr + 0.03): scaling_tier = 1
+#             scaling_tier = 2
+#             if late_wr > (early_wr + 0.03): scaling_tier = 3
+#             elif early_wr > (late_wr + 0.03): scaling_tier = 1
 
-            profiles.append({
-                "champion_id": row['champion_id'],
-                "physical_dmg_share": round(row['physical_dmg_share'] or 0, 3),
-                "magic_dmg_share": round(row['magic_share'] or 0, 3),
-                "true_dmg_share": round(row['true_share'] or 0, 3),
-                "gold_share_pct": round(row['gold_share_pct'] or 0, 3),
-                "objective_dmg_share": round(row['objective_dmg_share'] or 0, 3),
-                "avg_self_mitigated_per_min": round(row['avg_self_mitigated_per_min'] or 0, 2),
-                "avg_minions_killed": round(row['avg_minions_killed'] or 0, 2),
-                "avg_healing_per_min": round(row['avg_healing_per_min'] or 0, 2),
-                "avg_ally_healing_per_min": round(row['avg_ally_healing_per_min'] or 0, 2),
-                "avg_ally_shielding_per_min": round(row['avg_ally_shielding_per_min'] or 0, 2),
-                "actual_scaling_tier": scaling_tier,
-                "total_matches": row['total_matches']
-            })
+#             profiles.append({
+#                 "champion_id": row['champion_id'],
+#                 "physical_dmg_share": round(row['physical_dmg_share'] or 0, 3),
+#                 "magic_dmg_share": round(row['magic_share'] or 0, 3),
+#                 "true_dmg_share": round(row['true_share'] or 0, 3),
+#                 "gold_share_pct": round(row['gold_share_pct'] or 0, 3),
+#                 "objective_dmg_share": round(row['objective_dmg_share'] or 0, 3),
+#                 "avg_self_mitigated_per_min": round(row['avg_self_mitigated_per_min'] or 0, 2),
+#                 "avg_minions_killed": round(row['avg_minions_killed'] or 0, 2),
+#                 "avg_healing_per_min": round(row['avg_healing_per_min'] or 0, 2),
+#                 "avg_ally_healing_per_min": round(row['avg_ally_healing_per_min'] or 0, 2),
+#                 "avg_ally_shielding_per_min": round(row['avg_ally_shielding_per_min'] or 0, 2),
+#                 "actual_scaling_tier": scaling_tier,
+#                 "total_matches": row['total_matches']
+#             })
 
-        supabase.table("champion_behavior").upsert(profiles).execute()
-        print(f"[Success: Updated {len(profiles)} Champs]")
-    except Exception as e:
-        print(f"[Failed: {e}]")
+#         supabase.table("champion_behavior").upsert(profiles).execute()
+#         print(f"[Success: Updated {len(profiles)} Champs]")
+#     except Exception as e:
+#         print(f"[Failed: {e}]")
 
 if __name__ == "__main__":
     print("XGBoost Worker node starting...")
