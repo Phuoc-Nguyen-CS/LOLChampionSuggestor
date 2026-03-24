@@ -163,11 +163,12 @@ def process_match_data(match_data, tier, match_id):
 #         print(f"[Failed: {e}]")
 
 if __name__ == "__main__":
-    print("XGBoost Worker node starting...")
-    matches_processed = 0  # Initialize a counter
+    print("--- XGBoost Worker node starting ---")
     
     while True:
+        # 1. Grab matches from the queue
         matches = claim_pending_matches(limit=5)
+        
         if not matches:
             print("Queue empty, resting for 30s...")
             time.sleep(30)
@@ -185,22 +186,23 @@ if __name__ == "__main__":
                 data = get_matches_from_riot(m_id)
                 
                 if data:
+                    # 2. Process and Insert to Database
+                    # This now triggers the SQL Views to update automatically
                     process_match_data(data, m_tier, m_id)
-                    matches_processed += 1 # Increment successful matches
+                    
+                    # 3. ONLY mark as done if the insert was successful
+                    mark_match_done(m_id)
                     print("[Success]")
                 else:
                     print("[No Data (Skipped)]")
-                
-                mark_match_done(m_id)
 
             except Exception as e:
-                print(f"\nError on {m_id}: {e}")
+                # If an error occurs (like a missing champion), 
+                # we don't call mark_match_done. 
+                # The match stays 'PROCESSING' or reverts to 'PENDING'.
+                print(f"\n[CRITICAL ERROR] {m_id} could not be saved: {e}")
             
-            # Rate limit management
+            # 4. Rate limit management (Riot API compliance)
             elapsed = time.time() - start_time
-            wait_time = max(0, 1.26 - elapsed)
+            wait_time = max(0, 1.25 - elapsed)
             time.sleep(wait_time)
-            
-        if matches_processed >= 100:
-            sync_to_champion_behavior()
-            matches_processed = 0 # Reset counter
