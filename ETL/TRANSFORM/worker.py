@@ -103,7 +103,7 @@ def process_match_data(match_data, tier, match_id):
             "phys_share": p.get('physicalDamageDealtToChampions', 0) / total_dmg,
             "magic_share": p.get('magicDamageDealtToChampions', 0) / total_dmg,
             "true_share": p.get('trueDamageDealtToChampions', 0) / total_dmg,
-            
+    
             "gold_share": p.get('goldEarned', 0) / max(team_totals[team_id]['gold'], 1),
             "obj_dmg_share": p.get('damageDealtToObjectives', 0) / max(team_totals[team_id]['obj_dmg'], 1),
             
@@ -111,7 +111,8 @@ def process_match_data(match_data, tier, match_id):
             "minions_per_min": (p.get('totalMinionsKilled', 0) + p.get('neutralMinionsKilled', 0)) / duration_mins,
             "heal_per_min": p.get('totalHeal', 0) / duration_mins,
             "ally_heal_per_min": p.get('totalHealsOnTeammates', 0) / duration_mins,
-            "ally_shield_per_min": p.get("totalDamageShieldedOnTeammates", 0) / duration_mins
+            "ally_shield_per_min": p.get("totalDamageShieldedOnTeammates", 0) / duration_mins,
+            "avg_damage_per_minute": total_dmg / duration_mins if duration_mins > 0 else 0
         })
 
     # 3. Bulk Insert to Supabase (Replaces the old RPC calls)
