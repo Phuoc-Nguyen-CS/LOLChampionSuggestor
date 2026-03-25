@@ -29,7 +29,8 @@ class DraftModelTrainer:
             'range_delta', 
             'tankiness_delta',
             'dpm_delta',
-            'synergy_delta'
+            'synergy_delta',
+            'counter_delta'
         ]
         self.target_col = 'label'
         self.scaler = StandardScaler()
