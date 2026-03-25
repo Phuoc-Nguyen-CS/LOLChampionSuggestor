@@ -16,13 +16,19 @@ load_dotenv()
 
 class DraftModelTrainer:
     def __init__(self):
-        self.client = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+        self.client = create_client(os.getenv("TEMP_URL"), os.getenv("TEMP_KEY"))
+        
+        # 1. DIRECTORY FIX: Get the absolute path of the directory this script is in
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.models_dir = os.path.join(self.script_dir, "models")
+        os.makedirs(self.models_dir, exist_ok=True)
         
         self.feature_cols = [
             'engage_delta', 
             'catch_delta', 
             'range_delta', 
             'tankiness_delta',
+            'dpm_delta',
             'synergy_delta'
         ]
         self.target_col = 'label'
@@ -31,14 +37,13 @@ class DraftModelTrainer:
         self.model = None
 
     def load_data(self):
-        cache_path = "models/training_cache.csv"
+        # Update path to be absolute
+        cache_path = os.path.join(self.models_dir, "training_cache.csv")
         
-        # Check if we have a recent local copy
         if os.path.exists(cache_path):
             print("[CACHE] Loading training data from local storage...")
             df = pd.read_csv(cache_path)
         else:
-            # If not, pull from Supabase and save it
             print("[DATABASE] Pulling training data and creating local cache...")
             response = self.client.table("xgboost_training_view").select("*").execute()
             
@@ -46,21 +51,27 @@ class DraftModelTrainer:
                 raise ValueError("No data returned from the database.")
                 
             df = pd.DataFrame(response.data).fillna(0)
-            os.makedirs("models", exist_ok=True)
-            df.to_csv(cache_path, index=False) # Save to cache
+            df.to_csv(cache_path, index=False)
 
-        # Debugging information
         print(f"[DEBUG] Row Count: {len(df)}")
         
-        # Scaling and prep
-        df[self.feature_cols] = self.scaler.fit_transform(df[self.feature_cols])
+        df = df.sort_values(by="match_id").reset_index(drop=True)
+        
         X = df[self.feature_cols]
         y = df[self.target_col].astype(int)
         
-        return train_test_split(X, y, test_size=0.15, random_state=42)
+        # Split FIRST, transform SECOND
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.15)
+        
+        X_train_scaled = self.scaler.fit_transform(X_train)
+        X_test_scaled = self.scaler.transform(X_test)
+        
+        X_train = pd.DataFrame(X_train_scaled, columns=self.feature_cols)
+        X_test = pd.DataFrame(X_test_scaled, columns=self.feature_cols)
+        
+        return X_train, X_test, y_train, y_test
 
     def tune_hyperparameters(self, x_train, y_train):
-        """Automated search for best parameters using 5-Fold CV."""
         print("[OPTUNA] Searching for optimal parameters...")
 
         def objective(trial):
@@ -73,7 +84,7 @@ class DraftModelTrainer:
                 'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 0.9),
                 'min_child_weight': trial.suggest_int('min_child_weight', 5, 20),
                 'random_state': 42,
-                'early_stopping_rounds': 20 # Modern API placement
+                'early_stopping_rounds': 20
             }
             
             kf = KFold(n_splits=5, shuffle=True, random_state=42)
@@ -97,7 +108,6 @@ class DraftModelTrainer:
         print(f"[OPTUNA] Best CV ROC-AUC: {study.best_value:.4f}")
 
     def finalize_and_explain(self, x_train, y_train, x_test, y_test):
-        """Trains final model and generates SHAP report."""
         print("[MODEL] Finalizing production model...")
         
         final_params = self.best_params.copy()
@@ -108,25 +118,29 @@ class DraftModelTrainer:
         self.model = xgb.XGBClassifier(**final_params)
         self.model.fit(xt, yt, eval_set=[(xv, yv)], verbose=False)
 
-        # Evaluation on the "Vault" Test Set
         probs = self.model.predict_proba(x_test)[:, 1]
-        print(f"[FINAL STATS] Unbiased ROC-AUC: {roc_auc_score(y_test, probs):.4f}")
+        print(f"[FINAL STATS] True Unbiased ROC-AUC: {roc_auc_score(y_test, probs):.4f}")
 
-        # SHAP Plotting
         print("[SHAP] Generating logic visualization...")
         explainer = shap.TreeExplainer(self.model)
         shap_values = explainer.shap_values(x_test)
         
         plt.figure(figsize=(10, 6))
         shap.summary_plot(shap_values, x_test, feature_names=self.feature_cols, show=False)
-        os.makedirs("models", exist_ok=True)
-        plt.savefig("models/shap_summary.png", bbox_inches='tight')
+        
+        # Update path to be absolute
+        shap_path = os.path.join(self.models_dir, "shap_summary.png")
+        plt.savefig(shap_path, bbox_inches='tight')
 
     def save_artifacts(self):
-        self.model.save_model("models/champion_model.json")
-        with open("models/feature_list.json", 'w') as f:
+        # Update paths to be absolute
+        model_path = os.path.join(self.models_dir, "champion_model.json")
+        features_path = os.path.join(self.models_dir, "feature_list.json")
+        
+        self.model.save_model(model_path)
+        with open(features_path, 'w') as f:
             json.dump(self.feature_cols, f)
-        print("[STORAGE] Artifacts saved. System is ready for Inference.")
+        print("[STORAGE] Artifacts saved to ML/models directory. System is ready for Inference.")
 
 if __name__ == "__main__":
     trainer = DraftModelTrainer()
