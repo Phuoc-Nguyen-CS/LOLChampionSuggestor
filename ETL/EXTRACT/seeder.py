@@ -98,19 +98,23 @@ def get_recent_matches(puuid, count=15):
 def seed_match_queue(match_ids, tier):
     """
     Uploads Match IDs to the Supabase match_queue table.
-    Uses 'upsert' to ensure we don't create duplicate entries for the same match.
+    Uses 'ignore_duplicates' to ensure we never overwrite a DONE match back to PENDING.
     """
     if not match_ids: return
     
-    # We add the rank_tier to every row here
     data = [
         {"match_id": m_id, "status": "PENDING", "rank_tier": tier} 
         for m_id in match_ids
     ]
     
     try:
-        # Note: Ensure your Supabase table has a 'rank_tier' column!
-        supabase.table("match_queue").upsert(data, on_conflict="match_id").execute()
+        # ADDED 'ignore_duplicates=True'
+        # This translates to SQL: ON CONFLICT DO NOTHING
+        supabase.table("match_queue").upsert(
+            data, 
+            on_conflict="match_id", 
+            ignore_duplicates=True
+        ).execute()
     except Exception as e:
         print(f"DB Error: {e}")
 
