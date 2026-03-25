@@ -8,7 +8,7 @@ import shap
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split, KFold
 from sklearn.metrics import roc_auc_score
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, RobustScaler
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
@@ -33,7 +33,8 @@ class DraftModelTrainer:
             'counter_delta'
         ]
         self.target_col = 'label'
-        self.scaler = StandardScaler()
+        # self.scaler = StandardScaler()
+        self.scaler = RobustScaler()
         self.best_params = None
         self.model = None
 
@@ -82,7 +83,7 @@ class DraftModelTrainer:
                 'max_depth': trial.suggest_int('max_depth', 2, 4),
                 'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.05),
                 'subsample': trial.suggest_float('subsample', 0.6, 0.9),
-                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 0.9),
+                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.4, 0.7),
                 'min_child_weight': trial.suggest_int('min_child_weight', 5, 20),
                 'random_state': 42,
                 'early_stopping_rounds': 20
