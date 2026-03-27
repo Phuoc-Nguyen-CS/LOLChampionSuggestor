@@ -161,5 +161,5 @@ if __name__ == "__main__":
             
             print(f"\n[FINISH] Completed seeding for {tier_name}.")
 
-        print("\n[CYCLE COMPLETE] Resting for 10 minutes...")
-        time.sleep(600)
+        print("\n[CYCLE COMPLETE] Resting for about 10 minutes...")
+        time.sleep(550)

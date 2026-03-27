@@ -12,11 +12,19 @@ from sklearn.preprocessing import StandardScaler, RobustScaler
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
+# Inject project root into path to ensure model_adapter is importable
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from model_adapter import XGBoostChampionAdapter
+
 load_dotenv()
 
 class DraftModelTrainer:
     def __init__(self):
-        self.client = create_client(os.getenv("TEMP_URL"), os.getenv("TEMP_KEY"))
+        url = os.getenv("TEMP_URL")
+        key = os.getenv("TEMP_KEY")
+        
+        self.client = create_client(url, key)
         
         # 1. DIRECTORY FIX: Get the absolute path of the directory this script is in
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -54,6 +62,11 @@ class DraftModelTrainer:
                 
             df = pd.DataFrame(response.data).fillna(0)
             df.to_csv(cache_path, index=False)
+
+        # CRITICAL: Convert decimal-strings from Supabase View to floats for XGBoost
+        for col in ['dpm_delta', 'synergy_delta', 'counter_delta']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
 
         print(f"[DEBUG] Row Count: {len(df)}")
         
@@ -120,7 +133,10 @@ class DraftModelTrainer:
         self.model = xgb.XGBClassifier(**final_params)
         self.model.fit(xt, yt, eval_set=[(xv, yv)], verbose=False)
 
-        probs = self.model.predict_proba(x_test)[:, 1]
+        # Wrap with adapter to verify production-readiness during evaluation
+        production_model = XGBoostChampionAdapter(self.model, self.feature_cols)
+        
+        probs = production_model.predict_proba(x_test)[:, 1]
         print(f"[FINAL STATS] True Unbiased ROC-AUC: {roc_auc_score(y_test, probs):.4f}")
 
         print("[SHAP] Generating logic visualization...")
