@@ -86,13 +86,13 @@ class InferenceEngine:
             beh['champion_id'] = beh['champion_id'].astype(int)
             
             # DEBUG: Inspect columns before merging to see if 'name' exists in both sources
-            print(f"[DEBUG] DNA Columns: {dna.columns.tolist()}")
-            print(f"[DEBUG] Behavior Columns: {beh.columns.tolist()}")
+            # print(f"[DEBUG] DNA Columns: {dna.columns.tolist()}")
+            # print(f"[DEBUG] Behavior Columns: {beh.columns.tolist()}")
 
             merged = pd.merge(dna, beh, on="champion_id", how="left")
             
             # DEBUG: Inspect columns after merge to check for suffixes like name_x or name_y
-            print(f"[DEBUG] Merged Columns: {merged.columns.tolist()}")
+            # print(f"[DEBUG] Merged Columns: {merged.columns.tolist()}")
 
             # Handle 'name' column source and suffixes from merge (Annie logic)
             if 'name' not in merged.columns:
@@ -132,7 +132,7 @@ class InferenceEngine:
     def _load_counter_map(self) -> None:
         """Fetches counter-picking data for counter_delta calculations."""
         try:
-            res = self.client.table("champion_counter_match").select("champ_a, champ_b, counter_advantage").execute()
+            res = self.client.table("champion_counter_map").select("champ_a, champ_b, counter_advantage").execute()
             self.counter_map = {
                 (int(r['champ_a']), int(r['champ_b'])): float(r.get('counter_advantage', 0.0))
                 for r in res.data
