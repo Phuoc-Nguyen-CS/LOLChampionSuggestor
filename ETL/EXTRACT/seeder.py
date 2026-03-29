@@ -132,7 +132,7 @@ if __name__ == "__main__":
             
             # We take a subset (top 20) to keep the cycle moving quickly 
             # and avoid getting stuck on one rank for too long.
-            active_subset = all_players[:20] 
+            active_subset = all_players[:40] 
             
             if not active_subset:
                 print(f" ! Warning: Could not find players for {tier_name}")
@@ -162,4 +162,4 @@ if __name__ == "__main__":
             print(f"\n[FINISH] Completed seeding for {tier_name}.")
 
         print("\n[CYCLE COMPLETE] Resting for 10 minutes...")
-        time.sleep(600)
+        time.sleep(300)
