@@ -16,12 +16,12 @@ def run_system_check():
         print("[CRITICAL] Missing TEMP_URL or TEMP_KEY in .env")
         return
 
-    # 1. Setup Paths
+    # Setup Paths
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     model_path = os.path.join(project_root, "ML", "models", "champion_model.json")
     feature_path = os.path.join(project_root, "ML", "models", "feature_list.json")
 
-    # 2. Initialize Engine
+    # Initialize Engine
     client = create_client(url, key)
     engine = InferenceEngine(model_path, feature_path, client)
     
@@ -33,7 +33,7 @@ def run_system_check():
         print(f"[CRITICAL] Handshake Failed: {e}")
         return
 
-    # 3. Standardized Test Scenarios
+    # Standardized Test Scenarios
     scenarios = [
         {
             "name": "Scenario 1: The Synergy",
