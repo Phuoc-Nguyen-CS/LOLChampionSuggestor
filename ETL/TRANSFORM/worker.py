@@ -152,10 +152,12 @@ def process_match_data(match_data, timeline_data, tier, match_id):
 
             except (IndexError, KeyError):
                 # Game ended before this milestone. 
-                p_data[f"gold_at_{minute}"] = p.get('goldEarned', 0)
-                p_data[f"xp_at_{minute}"] = p.get('champLevel', 1) * 1000 # Approximation
-                p_data[f"cs_at_{minute}"] = p.get('totalMinionsKilled', 0) + p.get('neutralMinionsKilled', 0)
+                last_frame_idx = len(timeline_data['info']['frames']) - 1
+                last_frame = timeline_data['info']['frames'][last_frame_idx]['participantFrames'][p_id]
 
+                p_data[f"gold_at_{minute}"] = p.get('goldEarned', 0)
+                p_data[f"xp_at_{minute}"] = last_frame.get('xp', 0) 
+                p_data[f"cs_at_{minute}"] = p.get('totalMinionsKilled', 0) + p.get('neutralMinionsKilled', 0)
         records.append(p_data)
     
     # Bulk Insert to Supabase
