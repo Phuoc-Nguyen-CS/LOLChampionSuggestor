@@ -57,19 +57,6 @@ def get_players(session, league):
     print(f" ! API Error {response.status_code} for {tier}")
     return []
 
-# def get_puuid_if_missing(player_obj):
-#     """Exchanges summonerId for puuid if the API didn't provide it."""
-#     puuid = player_obj.get('puuid')
-#     if puuid:
-#         return puuid
-#     print(f"[DEBUG] Did not find puuid for {player_obj['summonerName']}")
-#     summoner_id = player_obj.get('summonerId')
-#     url = f"https://{REGION_PLATFORM}.api.riotgames.com/lol/summoner/v4/summoners/{summoner_id}"
-#     res = requests.get(url, params={"api_key": RIOT_API_KEY})
-#     if res.status_code == 200:
-#         return res.json().get('puuid')
-#     return None
-
 def get_recent_matches(session, puuid, count=20):
     """
     Retrieves the last X match IDs for a specific player PUUID.
@@ -95,7 +82,6 @@ def seed_match_queue(match_ids, tier):
     ]
     
     try:
-        # 'ignore_duplicates=True' translates to SQL: ON CONFLICT DO NOTHING
         supabase.table("match_queue").upsert(
             data, 
             on_conflict="match_id", 
@@ -106,27 +92,7 @@ def seed_match_queue(match_ids, tier):
 
 if __name__ == "__main__":
     print("--- Multi-Tier Seeder Bot Active ---")
-<<<<<<< HEAD
-    
-    while True:
-        # This loop now iterates through every entry in your LEAGUES list
-        for league in LEAGUES:
-            tier_name = league['tier']
-            print(f"\n[TARGETING] {tier_name} ({league['type']})")
-            
-            # Fetch the player list for this specific tier
-            all_players = get_players(league)
-            
-            # We take a subset (top 20) to keep the cycle moving quickly 
-            # and avoid getting stuck on one rank for too long.
-            active_subset = all_players[:40] 
-            
-            if not active_subset:
-                print(f" ! Warning: Could not find players for {tier_name}")
-                continue
-=======
     session = requests.Session()
->>>>>>> 89dea38ca6bf2694cf6fd01fa5f653fddd51ca64
 
     try:
         while True:
@@ -149,10 +115,6 @@ if __name__ == "__main__":
                         print(f" ! Skipping {tier_name} idx {i}: Redundant PUUID check failed.")
                         continue
 
-<<<<<<< HEAD
-        print("\n[CYCLE COMPLETE] Resting for 10 minutes...")
-        time.sleep(300)
-=======
                     # Get Match IDs
                     m_ids = get_recent_matches(session, puuid)
                     
@@ -160,7 +122,6 @@ if __name__ == "__main__":
                         seed_match_queue(m_ids, tier_name)
                         print(f" + {tier_name} Progress: {i+1}/{len(active_subset)}", end="\r")
                     
-                    # Rate limit math: 1.3s sleep = ~0.77 RPS (Safe for 0.83 limit)
                     time.sleep(1.3) 
                 
                 print(f"\n[FINISH] Completed {tier_name}.")
@@ -169,4 +130,3 @@ if __name__ == "__main__":
             time.sleep(550)
     except KeyboardInterrupt:
         session.close()
->>>>>>> 89dea38ca6bf2694cf6fd01fa5f653fddd51ca64
